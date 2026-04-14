@@ -1,0 +1,7 @@
+code,label,color,description,display_order
+slob,SLOB,#dc2626,Slow-moving / obsolete stock - cost risk if batch reruns,1
+obs_candidate,Obs candidate,#f59e0b,Flagged for obsoletion discussion with demand team,2
+watchlist,Watchlist,#2563eb,Keep an eye on performance,3
+ebr_pending,EBR pending,#7c3aed,Awaiting Engineering / Batch Release testing,4
+held,Held,#475569,Paused - do not action yet,5
+high_value,High value,#059669,Strategic / high-margin SKU,6

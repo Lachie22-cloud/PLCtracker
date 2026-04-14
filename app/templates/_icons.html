@@ -40,5 +40,17 @@
     <svg {{ common|safe }} class="icon {{ cls }}"><path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12"/><path d="M6 14h12"/><rect x="6" y="10" width="12" height="12"/></svg>
   {%- elif name == 'filter' -%}
     <svg {{ common|safe }} class="icon {{ cls }}"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+  {%- elif name == 'list-checks' -%}
+    <svg {{ common|safe }} class="icon {{ cls }}"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
+  {%- elif name == 'tag' -%}
+    <svg {{ common|safe }} class="icon {{ cls }}"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+  {%- elif name == 'clock' -%}
+    <svg {{ common|safe }} class="icon {{ cls }}"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+  {%- elif name == 'calendar' -%}
+    <svg {{ common|safe }} class="icon {{ cls }}"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+  {%- elif name == 'message' -%}
+    <svg {{ common|safe }} class="icon {{ cls }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  {%- elif name == 'arrow-right' -%}
+    <svg {{ common|safe }} class="icon {{ cls }}"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
   {%- endif %}
 {%- endmacro %}

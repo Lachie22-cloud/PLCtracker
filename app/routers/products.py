@@ -16,7 +16,9 @@ from ..models import (
     LifecycleStage,
     Plant,
     Product,
+    ProductTag,
     StageTransition,
+    Tag,
     User,
 )
 from ..templating import templates
@@ -152,10 +154,46 @@ async def product_detail(
             .order_by(StageTransition.detected_at.desc())
         ).all()
     )
+
+    # Same material across every plant — for the family strip in the hero.
+    family_rows = list(
+        db.scalars(
+            select(Product)
+            .where(Product.material_no == product.material_no)
+            .order_by(Product.plant_code)
+        ).all()
+    )
+
     all_stages = list(
         db.scalars(select(LifecycleStage).order_by(LifecycleStage.display_order)).all()
     )
+    all_plants = {p.plant_code: p for p in db.scalars(select(Plant)).all()}
     all_users = list(db.scalars(select(User).order_by(User.name)).all())
+    all_tags = list(db.scalars(select(Tag).order_by(Tag.display_order)).all())
+
+    # Interleaved activity feed: comments, actions, stage transitions.
+    feed: list[dict] = []
+    for c in comments:
+        feed.append({
+            "at": c.created_at, "kind": "comment", "user": c.user, "body": c.body,
+        })
+    for a in actions:
+        feed.append({
+            "at": a.created_at, "kind": "action_new", "user": a.created_by,
+            "action": a,
+        })
+        if a.completed_at:
+            feed.append({
+                "at": a.completed_at, "kind": "action_done", "user": a.created_by,
+                "action": a,
+            })
+    for t in transitions:
+        feed.append({
+            "at": t.detected_at, "kind": "stage", "user": t.changed_by,
+            "from": t.from_stage_code, "to": t.to_stage_code,
+            "rationale": t.rationale,
+        })
+    feed.sort(key=lambda x: x["at"], reverse=True)
 
     return templates.TemplateResponse(
         "product_detail.html",
@@ -166,8 +204,12 @@ async def product_detail(
             "comments": comments,
             "actions": actions,
             "transitions": transitions,
+            "family_rows": family_rows,
             "all_stages": all_stages,
+            "all_plants": all_plants,
             "all_users": all_users,
+            "all_tags": all_tags,
+            "feed": feed,
         },
     )
 
@@ -253,3 +295,141 @@ async def complete_action(
     action.completed_at = datetime.utcnow()
     db.commit()
     return RedirectResponse(url=f"/products/{action.product_id}", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Manual stage change (planner-driven, with rationale)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/products/{product_id}/stage")
+async def change_stage(
+    product_id: int,
+    stage_code: str = Form(...),
+    rationale: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    from datetime import datetime
+
+    product = db.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404)
+    new_code = stage_code.strip().upper()
+    # Ensure target stage exists
+    if db.query(LifecycleStage).filter(LifecycleStage.code == new_code).first() is None:
+        raise HTTPException(status_code=400, detail="Unknown stage")
+
+    if product.stage_code == new_code:
+        # Still record the rationale as a comment so planners don't lose context.
+        if rationale.strip():
+            db.add(
+                Comment(
+                    product_id=product_id,
+                    user_id=user.id,
+                    body=f"(stage kept at {new_code}) {rationale.strip()}",
+                )
+            )
+            db.commit()
+        return RedirectResponse(url=f"/products/{product_id}", status_code=303)
+
+    now = datetime.utcnow()
+    db.add(
+        StageTransition(
+            product_id=product_id,
+            from_stage_code=product.stage_code,
+            to_stage_code=new_code,
+            from_snapshot_id=None,
+            to_snapshot_id=None,
+            detected_at=now,
+            rationale=rationale.strip(),
+            changed_by_id=user.id,
+        )
+    )
+    product.stage_code = new_code
+    product.stage_since = now
+    db.commit()
+
+    # Recompute family mismatches after stage change.
+    from ..services.snapshot import _recompute_family_mismatches
+    _recompute_family_mismatches(db)
+    db.commit()
+
+    return RedirectResponse(url=f"/products/{product_id}", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Review scheduling
+# ---------------------------------------------------------------------------
+
+
+@router.post("/products/{product_id}/review")
+async def set_review(
+    product_id: int,
+    next_review_date: str = Form(""),
+    review_note: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    from datetime import datetime
+
+    product = db.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404)
+
+    if next_review_date.strip():
+        try:
+            product.next_review_date = datetime.fromisoformat(next_review_date)
+        except ValueError:
+            product.next_review_date = None
+    else:
+        product.next_review_date = None
+    product.review_note = review_note.strip()
+    db.commit()
+    # /review posts come back to themselves; detail posts come back to detail.
+    referer = (product_id and f"/products/{product_id}") or "/review"
+    return RedirectResponse(url=referer, status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------------
+
+
+@router.post("/products/{product_id}/tags/add")
+async def add_tag(
+    product_id: int,
+    tag_id: int = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    product = db.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404)
+    tag = db.get(Tag, tag_id)
+    if tag is None:
+        raise HTTPException(status_code=404)
+    existing = (
+        db.query(ProductTag)
+        .filter(ProductTag.product_id == product_id, ProductTag.tag_id == tag_id)
+        .first()
+    )
+    if existing is None:
+        db.add(ProductTag(product_id=product_id, tag_id=tag_id, created_by_id=user.id))
+        db.commit()
+    return RedirectResponse(url=f"/products/{product_id}", status_code=303)
+
+
+@router.post("/products/{product_id}/tags/{tag_id}/remove")
+async def remove_tag(
+    product_id: int,
+    tag_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    db.query(ProductTag).filter(
+        ProductTag.product_id == product_id,
+        ProductTag.tag_id == tag_id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return RedirectResponse(url=f"/products/{product_id}", status_code=303)

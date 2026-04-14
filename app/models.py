@@ -35,6 +35,8 @@ class LifecycleStage(Base):
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     color: Mapped[str] = mapped_column(String(16), nullable=False, default="#888888")
     is_terminal: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Expected days in this stage before it's considered "overrun". NULL = no limit.
+    expected_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
 
 class Plant(Base):
@@ -123,6 +125,9 @@ class Product(Base):
     family_mismatch: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     family_mismatch_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
+    next_review_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    review_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )
@@ -134,6 +139,12 @@ class Product(Base):
     )
 
     owner: Mapped[Optional[User]] = relationship("User")
+    tags: Mapped[list["Tag"]] = relationship(
+        "Tag",
+        secondary="product_tag",
+        order_by="Tag.display_order",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         UniqueConstraint("material_no", "plant_code", name="uq_product_matnr_plant"),
@@ -237,9 +248,50 @@ class StageTransition(Base):
     from_snapshot_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("snapshot.id"), nullable=True
     )
-    to_snapshot_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("snapshot.id"), nullable=False
+    to_snapshot_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("snapshot.id"), nullable=True
     )
     detected_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
+    )
+    # Optional rationale set by a planner when manually changing stage.
+    rationale: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Who made this change — NULL for automatic (upload-driven) transitions.
+    changed_by_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("user.id"), nullable=True
+    )
+
+    changed_by: Mapped[Optional[User]] = relationship("User")
+
+
+# ---------------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------------
+
+
+class Tag(Base):
+    __tablename__ = "tag"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    color: Mapped[str] = mapped_column(String(16), nullable=False, default="#64748b")
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class ProductTag(Base):
+    __tablename__ = "product_tag"
+
+    product_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("product.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tag.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    created_by_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("user.id"), nullable=True
     )

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Obsoletion review{% endblock %}
+
+{% block breadcrumb %}
+  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+  <span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Obs review</span>
+{% endblock %}
+
+{% block header_title %}<h1>Obsoletion review</h1>{% endblock %}
+{% block header_subtitle %}
+  <div class="subtitle">Everything currently in {{ selected_stages|join(' / ') }} — edit review dates and notes inline. Designed for the monthly obs meeting with demand.</div>
+{% endblock %}
+{% block header_actions %}
+  <a href="/export.csv?stage=O1&stage=O2" class="btn btn-secondary">{{ icon('download', 14) }} Export CSV</a>
+{% endblock %}
+
+{% block content %}
+<div class="summary-row">
+  <span class="summary-chip"><span class="dot"></span><strong>{{ total }}</strong> in review</span>
+  <a class="summary-chip {% if overdue_count > 0 %}summary-chip--warn{% else %}summary-chip--ok{% endif %}" href="/review?overdue_only=1">
+    <span class="dot"></span><strong>{{ overdue_count }}</strong> overdue reviews
+  </a>
+  <span class="summary-chip"><span class="dot"></span><strong>{{ no_review }}</strong> no review date</span>
+  <span class="summary-chip"><span class="dot"></span><strong>{{ unassigned }}</strong> unassigned</span>
+</div>
+
+<div class="panel panel--tight">
+  <form method="get" action="/review" class="filter-bar">
+    <label class="field">Stage
+      <select name="stage" multiple size="2" style="min-width: 140px;">
+        {% for s in all_stages %}
+          <option value="{{ s.code }}" {% if s.code in selected_stages %}selected{% endif %}>{{ s.code }} — {{ s.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">Only overdue
+      <select name="overdue_only">
+        <option value="">All</option>
+        <option value="1" {% if overdue_only %}selected{% endif %}>Overdue only</option>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Apply</button>
+    <a href="/review" class="btn btn-subtle">Clear</a>
+  </form>
+</div>
+
+<div class="panel panel--tight" style="overflow-x: auto;">
+  <table class="data-table data-table--review">
+    <thead>
+      <tr>
+        <th>Material / Plant</th>
+        <th>Stage</th>
+        <th>Days in stage</th>
+        <th style="width: 360px;">Review note</th>
+        <th style="width: 180px;">Next review</th>
+        <th>Owner</th>
+        <th>Tags</th>
+        <th style="width: 160px;">Quick move</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+        {% set stage = (all_stages|selectattr('code', 'equalto', p.stage_code)|list|first) %}
+        {% set is_overdue = p.next_review_date and p.next_review_date.date() <= today %}
+        <tr class="{% if is_overdue %}warn{% endif %}">
+          <td>
+            <a href="/products/{{ p.id }}" class="mono fw-600">{{ p.material_no }}</a>
+            <div class="text-sm text-muted mono">{{ p.plant_code }}</div>
+          </td>
+          <td>
+            <span class="chip" style="background: {{ (stage.color if stage else '#e5e7eb') }}20; border-color: {{ (stage.color if stage else '#e5e7eb') }}; color: {{ (stage.color if stage else '#475569') }};">{{ p.stage_code }}</span>
+          </td>
+          <td class="nowrap">{{ p.stage_since|days_since }}</td>
+          <td>
+            <form method="post" action="/review/{{ p.id }}/note" class="stack" style="gap:4px;">
+              <textarea name="review_note" style="min-height:52px;" placeholder="Add / update review note…">{{ p.review_note }}</textarea>
+              <input type="hidden" name="next_review_date" value="{{ p.next_review_date.strftime('%Y-%m-%d') if p.next_review_date else '' }}">
+              <div class="row" style="justify-content:space-between;">
+                {% if latest_comments.get(p.id) %}
+                  <span class="text-xs text-muted" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ latest_comments[p.id].body }}">
+                    last: {{ latest_comments[p.id].body }}
+                  </span>
+                {% else %}
+                  <span></span>
+                {% endif %}
+                <button type="submit" class="btn btn-subtle btn-sm">Save note</button>
+              </div>
+            </form>
+          </td>
+          <td>
+            <form method="post" action="/review/{{ p.id }}/note" class="row" style="gap:4px;">
+              <input type="hidden" name="review_note" value="{{ p.review_note }}">
+              <input type="date" name="next_review_date"
+                     value="{{ p.next_review_date.strftime('%Y-%m-%d') if p.next_review_date else '' }}">
+              <button type="submit" class="btn btn-subtle btn-sm">Save</button>
+            </form>
+            {% if is_overdue %}<div class="text-xs text-warn">overdue</div>{% endif %}
+          </td>
+          <td>
+            <form method="post" action="/review/{{ p.id }}/owner" class="row" style="gap:4px;">
+              <select name="owner_id">
+                <option value="">—</option>
+                {% for u in all_users %}
+                  <option value="{{ u.id }}" {% if p.owner_id == u.id %}selected{% endif %}>{{ u.name or u.email }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-subtle btn-sm">Save</button>
+            </form>
+          </td>
+          <td>
+            {% for t in p.tags %}
+              <span class="chip" style="--tag-color: {{ t.color }}; background: {{ t.color }}1a; color: {{ t.color }}; border-color: {{ t.color }};">{{ t.label }}</span>
+            {% endfor %}
+            {% if not p.tags %}<span class="text-muted text-xs">—</span>{% endif %}
+          </td>
+          <td>
+            <form method="post" action="/review/{{ p.id }}/stage" class="row" style="gap:4px;">
+              <select name="stage_code">
+                {% for s in all_stages %}
+                  <option value="{{ s.code }}" {% if s.code == p.stage_code %}selected{% endif %}>{{ s.code }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-subtle btn-sm">Move</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr class="empty-row"><td colspan="8">Nothing in review. Everything is either pre-obs or fully obsolete.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

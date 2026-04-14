@@ -13,6 +13,7 @@
     <a href="/board"     class="nav-item {% if request.url.path == '/board'     %}active{% endif %}">{{ icon('kanban',  18) }} Board</a>
     <a href="/products"  class="nav-item {% if request.url.path.startswith('/products') %}active{% endif %}">{{ icon('table',   18) }} Table</a>
     <a href="/dashboard" class="nav-item {% if request.url.path == '/dashboard' %}active{% endif %}">{{ icon('chart',   18) }} Dashboard</a>
+    <a href="/review"    class="nav-item {% if request.url.path.startswith('/review') %}active{% endif %}">{{ icon('list-checks', 18) }} Obs review</a>
     <a href="/upload"    class="nav-item {% if request.url.path == '/upload'    %}active{% endif %}">{{ icon('upload',  18) }} Upload</a>
   </div>
 

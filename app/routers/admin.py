@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import hash_password, require_admin
 from ..db import get_db
-from ..models import LifecycleStage, MrpRule, Plant, Snapshot, User
+from ..models import LifecycleStage, MrpRule, Plant, Snapshot, Tag, User
 from ..services.snapshot import _recompute_family_mismatches
 from ..templating import templates
 
@@ -34,6 +34,7 @@ async def admin_home(
     snapshots = list(
         db.scalars(select(Snapshot).order_by(Snapshot.uploaded_at.desc())).all()
     )[:50]
+    tags = list(db.scalars(select(Tag).order_by(Tag.display_order)).all())
     return templates.TemplateResponse(
         "admin.html",
         {
@@ -44,6 +45,7 @@ async def admin_home(
             "plants": plants,
             "matrix": matrix,
             "snapshots": snapshots,
+            "tags": tags,
         },
     )
 
@@ -138,6 +140,7 @@ async def update_stage(
     display_order: int = Form(0),
     color: str = Form("#888888"),
     is_terminal: str = Form(""),
+    expected_days: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_admin),
 ):
@@ -150,7 +153,73 @@ async def update_stage(
     stage.display_order = int(display_order)
     stage.color = color.strip()
     stage.is_terminal = bool(is_terminal)
+    try:
+        stage.expected_days = int(expected_days) if expected_days.strip() else None
+    except ValueError:
+        stage.expected_days = None
     db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+# --- Tags ------------------------------------------------------------------
+
+@router.post("/admin/tags")
+async def create_tag(
+    code: str = Form(...),
+    label: str = Form(...),
+    color: str = Form("#64748b"),
+    description: str = Form(""),
+    display_order: int = Form(0),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    code = code.strip().lower()
+    if db.query(Tag).filter(Tag.code == code).first():
+        raise HTTPException(status_code=400, detail="Tag code already exists")
+    db.add(
+        Tag(
+            code=code,
+            label=label.strip(),
+            color=color.strip(),
+            description=description.strip(),
+            display_order=int(display_order),
+        )
+    )
+    db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/admin/tags/{tag_id}")
+async def update_tag(
+    tag_id: int,
+    label: str = Form(...),
+    color: str = Form("#64748b"),
+    description: str = Form(""),
+    display_order: int = Form(0),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    tag = db.get(Tag, tag_id)
+    if not tag:
+        raise HTTPException(status_code=404)
+    tag.label = label.strip()
+    tag.color = color.strip()
+    tag.description = description.strip()
+    tag.display_order = int(display_order)
+    db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/admin/tags/{tag_id}/delete")
+async def delete_tag(
+    tag_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    tag = db.get(Tag, tag_id)
+    if tag:
+        db.delete(tag)
+        db.commit()
     return RedirectResponse(url="/admin", status_code=303)
 
 

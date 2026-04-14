@@ -9,143 +9,321 @@
   <span class="mono">{{ product.material_no }} @ {{ product.plant_code }}</span>
 {% endblock %}
 
-{% block header_title %}<h1 class="mono" style="font-size: 20px;">{{ product.material_no }}</h1>{% endblock %}
-{% block header_subtitle %}
-  <div class="subtitle row" style="gap: 10px;">
-    <span class="chip">{{ product.plant_code }}</span>
-    <span>Status</span>
-    <span class="chip">{{ product.stage_code }}</span>
-    <span class="text-muted">· {{ product.stage_since|days_since }} days in stage</span>
-  </div>
-{% endblock %}
+{% block header_title %}{% endblock %}
+{% block header_subtitle %}{% endblock %}
 
 {% block content %}
-  {% if product.mrp_mismatch %}
-    <div class="mismatch-banner">{{ icon('alert-triangle', 16) }} <div><strong>MRP mismatch.</strong> {{ product.mrp_mismatch_note }}</div></div>
-  {% endif %}
-  {% if product.family_mismatch %}
-    <div class="mismatch-banner">{{ icon('alert-triangle', 16) }} <div><strong>Family mismatch.</strong> {{ product.family_mismatch_note }}</div></div>
-  {% endif %}
+{% set current_stage = (all_stages|selectattr('code', 'equalto', product.stage_code)|list|first) %}
+{% set days = product.stage_since|days_since %}
+{% set overrun = current_stage and current_stage.expected_days and days > current_stage.expected_days %}
 
-  <div class="detail-grid">
+{# ------------------------------------------------------------------ #}
+{# Hero: material, plant, pipeline, meta, quick actions                #}
+{# ------------------------------------------------------------------ #}
+<div class="panel hero">
+  <div class="hero__top">
     <div>
-      <div class="panel">
-        <h2>Overview</h2>
-        <dl class="kv-grid" style="margin-top: 8px;">
-          <dt>Material</dt><dd class="mono">{{ product.material_no }}</dd>
-          <dt>Plant</dt><dd class="mono">{{ product.plant_code }}</dd>
-          <dt>Status</dt><dd>{{ product.stage_code }}</dd>
-          <dt>MRP profile</dt><dd class="mono">{{ product.mrp_profile or '—' }}</dd>
-          <dt>Days in stage</dt><dd>{{ product.stage_since|days_since }}</dd>
-          <dt>First seen</dt><dd>{{ product.first_seen_at|fmt_date }}</dd>
-          <dt>Last seen</dt><dd>{{ product.last_seen_at|fmt_date }}</dd>
-        </dl>
+      <div class="hero__material mono">{{ product.material_no }}</div>
+      <div class="hero__sub">
+        <span class="chip {% if all_plants.get(product.plant_code) and all_plants[product.plant_code].plant_type == 'factory' %}chip--factory{% else %}chip--warehouse{% endif %}">
+          {{ product.plant_code }}
+          · {{ (all_plants.get(product.plant_code).plant_type if all_plants.get(product.plant_code) else 'plant') }}
+        </span>
+        <span class="text-muted">·</span>
+        <span>{{ days }} days in {{ product.stage_code }}</span>
+        {% if overrun %}
+          <span class="chip chip--warn">{{ icon('alert-triangle', 10) }} overrun</span>
+        {% endif %}
       </div>
+    </div>
+    <div class="hero__actions">
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('stage-modal').showModal()">
+        {{ icon('arrow-right', 14) }} Change stage
+      </button>
+    </div>
+  </div>
 
-      <div class="panel">
-        <h2>Actions</h2>
-        <form method="post" action="/products/{{ product.id }}/action" class="stack" style="margin-top: 8px;">
-          <input type="text" name="title" placeholder="e.g. Follow up with warehouse to update status" required>
-          <div class="row">
-            <label class="field">Due<input type="date" name="due_date"></label>
-            <label class="field">Assignee
-              <select name="assignee_id">
-                <option value="">Unassigned</option>
-                {% for u in all_users %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
-              </select>
-            </label>
-            <div class="spacer"></div>
-            <button type="submit" class="btn btn-primary">{{ icon('plus', 14) }} Add action</button>
-          </div>
-        </form>
-        <div class="divider"></div>
-        <table class="data-table">
-          <thead><tr><th>Title</th><th>Due</th><th>Assignee</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-            {% for a in actions %}
-              <tr>
-                <td>{{ a.title }}</td>
-                <td class="nowrap">{{ a.due_date|fmt_date if a.due_date else '—' }}</td>
-                <td>{{ a.assignee.name if a.assignee else '—' }}</td>
-                <td>
-                  {% if a.status == 'done' %}
-                    <span class="chip chip--ok">{{ icon('check', 10) }} done</span>
-                  {% else %}
-                    <span class="chip">open</span>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if a.status == 'open' %}
-                    <form method="post" action="/actions/{{ a.id }}/complete">
-                      <button type="submit" class="btn btn-subtle btn-sm">Mark done</button>
-                    </form>
-                  {% endif %}
-                </td>
-              </tr>
-            {% else %}
-              <tr class="empty-row"><td colspan="5">No actions yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+  {# Stage pipeline #}
+  <div class="pipeline">
+    {% for s in all_stages %}
+      {% set is_cur = (s.code == product.stage_code) %}
+      <div class="pipeline__step {% if is_cur %}is-current{% endif %}" style="--step-color: {{ s.color }};">
+        <div class="pipeline__dot"></div>
+        <div class="pipeline__code mono">{{ s.code }}</div>
+        <div class="pipeline__label">{{ s.label|truncate(22) }}</div>
       </div>
+      {% if not loop.last %}<div class="pipeline__bar"></div>{% endif %}
+    {% endfor %}
+  </div>
+</div>
 
-      <div class="panel">
-        <h2>Comments</h2>
-        <form method="post" action="/products/{{ product.id }}/comment" class="stack" style="margin-top: 8px;">
-          <textarea name="body" placeholder="Add a comment…" required></textarea>
-          <div class="row-end">
-            <button type="submit" class="btn btn-primary">{{ icon('plus', 14) }} Post comment</button>
-          </div>
-        </form>
-        <div class="divider"></div>
-        {% for c in comments %}
-          <div class="comment">
-            {% set initials = (c.user.name or c.user.email)[:2]|upper %}
-            <div class="who">
-              <span class="avatar avatar--sm">{{ initials }}</span>
-              <strong style="color: var(--text);">{{ c.user.name or c.user.email }}</strong>
-              <span>·</span>
-              <span>{{ c.created_at|fmt_date }}</span>
-            </div>
-            <div class="body">{{ c.body }}</div>
+{# ------------------------------------------------------------------ #}
+{# Mismatch banners                                                    #}
+{# ------------------------------------------------------------------ #}
+{% if product.mrp_mismatch %}
+  <div class="mismatch-banner">{{ icon('alert-triangle', 16) }} <div><strong>MRP mismatch.</strong> {{ product.mrp_mismatch_note }}</div></div>
+{% endif %}
+{% if product.family_mismatch %}
+  <div class="mismatch-banner">{{ icon('alert-triangle', 16) }} <div><strong>Family mismatch.</strong> {{ product.family_mismatch_note }}</div></div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Family strip                                                        #}
+{# ------------------------------------------------------------------ #}
+{% if family_rows|length > 1 %}
+<div class="panel panel--tight">
+  <div class="family-strip__head">
+    <h3 style="margin:0;">Same material across plants</h3>
+    <span class="text-muted text-sm">{{ family_rows|length }} rows · click a plant to open its detail</span>
+  </div>
+  <div class="family-strip">
+    {% for fr in family_rows %}
+      {% set frplant = all_plants.get(fr.plant_code) %}
+      {% set frstage = (all_stages|selectattr('code', 'equalto', fr.stage_code)|list|first) %}
+      {% set is_me = (fr.id == product.id) %}
+      <a href="/products/{{ fr.id }}" class="family-cell {% if is_me %}is-me{% endif %} {% if fr.family_mismatch %}is-warn{% endif %}"
+         style="--accent-color: {{ frstage.color if frstage else '#cbd5e1' }};">
+        <div class="family-cell__plant">
+          <span class="mono">{{ fr.plant_code }}</span>
+          {% if frplant %}<span class="text-muted text-xs">{{ frplant.plant_type }}</span>{% endif %}
+        </div>
+        <div class="family-cell__stage">
+          <span class="chip" style="background: {{ (frstage.color if frstage else '#e5e7eb') }}1a; border-color: {{ (frstage.color if frstage else '#e5e7eb') }}; color: {{ (frstage.color if frstage else '#475569') }};">{{ fr.stage_code }}</span>
+        </div>
+        <div class="family-cell__meta">
+          <span class="mono text-xs">{{ fr.mrp_profile or '—' }}</span>
+          <span class="text-xs text-muted">{{ fr.stage_since|days_since }}d</span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Two-column content                                                  #}
+{# ------------------------------------------------------------------ #}
+<div class="detail-grid">
+  <div>
+    {# ==== Activity feed (comments + actions + transitions interleaved) ==== #}
+    <div class="panel">
+      <h2>Activity</h2>
+
+      {# Quick-add comment inline #}
+      <form method="post" action="/products/{{ product.id }}/comment" class="stack" style="margin: 6px 0 12px;">
+        <textarea name="body" placeholder="Add a comment, rationale, or note from the demand meeting…" required></textarea>
+        <div class="row-end">
+          <button type="submit" class="btn btn-primary">{{ icon('plus', 14) }} Post comment</button>
+        </div>
+      </form>
+
+      <div class="divider"></div>
+
+      <div class="activity">
+        {% for ev in feed %}
+          <div class="activity__item">
+            {% if ev.kind == 'comment' %}
+              <span class="activity__dot activity__dot--comment">{{ icon('message', 12) }}</span>
+              <div class="activity__body">
+                <div class="activity__head">
+                  {% set who = ev.user %}
+                  <strong>{{ who.name if who else 'Unknown' }}</strong>
+                  <span class="text-muted">commented · {{ ev.at|fmt_date }}</span>
+                </div>
+                <div class="activity__content">{{ ev.body }}</div>
+              </div>
+            {% elif ev.kind == 'action_new' %}
+              <span class="activity__dot activity__dot--action">{{ icon('list-checks', 12) }}</span>
+              <div class="activity__body">
+                <div class="activity__head">
+                  <strong>{{ ev.user.name if ev.user else 'Unknown' }}</strong>
+                  <span class="text-muted">created action · {{ ev.at|fmt_date }}</span>
+                </div>
+                <div class="activity__content">
+                  <em>{{ ev.action.title }}</em>
+                  {% if ev.action.due_date %}<span class="text-muted text-sm"> · due {{ ev.action.due_date|fmt_date }}</span>{% endif %}
+                  {% if ev.action.assignee %}<span class="text-muted text-sm"> · for {{ ev.action.assignee.name or ev.action.assignee.email }}</span>{% endif %}
+                </div>
+              </div>
+            {% elif ev.kind == 'action_done' %}
+              <span class="activity__dot activity__dot--done">{{ icon('check', 12) }}</span>
+              <div class="activity__body">
+                <div class="activity__head">
+                  <span class="text-muted">Action completed · {{ ev.at|fmt_date }}</span>
+                </div>
+                <div class="activity__content"><s>{{ ev.action.title }}</s></div>
+              </div>
+            {% elif ev.kind == 'stage' %}
+              <span class="activity__dot activity__dot--stage">{{ icon('arrow-right', 12) }}</span>
+              <div class="activity__body">
+                <div class="activity__head">
+                  {% if ev.user %}<strong>{{ ev.user.name or ev.user.email }}</strong> changed stage{% else %}<strong>Upload</strong> detected stage change{% endif %}
+                  <span class="text-muted">· {{ ev.at|fmt_date }}</span>
+                </div>
+                <div class="activity__content">
+                  <strong>{{ ev['from'] or 'Created' }}</strong> → <strong>{{ ev['to'] }}</strong>
+                  {% if ev.rationale %}<div class="text-sm text-muted" style="margin-top:2px;">“{{ ev.rationale }}”</div>{% endif %}
+                </div>
+              </div>
+            {% endif %}
           </div>
         {% else %}
-          <div class="text-muted text-sm">No comments yet.</div>
+          <div class="text-muted text-sm">No activity yet.</div>
         {% endfor %}
       </div>
     </div>
 
-    <div>
-      <div class="panel">
-        <h2>Owner</h2>
-        <form method="post" action="/products/{{ product.id }}/owner" class="stack" style="margin-top: 8px;">
-          <select name="owner_id">
-            <option value="">Unassigned</option>
-            {% for u in all_users %}
-              <option value="{{ u.id }}" {% if product.owner_id == u.id %}selected{% endif %}>{{ u.name or u.email }}</option>
-            {% endfor %}
-          </select>
-          <div class="row-end">
-            <button type="submit" class="btn btn-secondary btn-sm">Save owner</button>
-          </div>
-        </form>
-      </div>
-
-      <div class="panel">
-        <h2>Stage history</h2>
-        {% if transitions %}
-          <div class="timeline" style="margin-top: 10px;">
-            {% for t in transitions %}
-              <div class="timeline-item">
-                <div><strong>{{ t.from_stage_code or 'Created' }}</strong> → <strong>{{ t.to_stage_code }}</strong></div>
-                <div class="when">{{ t.detected_at|fmt_date }}</div>
-              </div>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="text-muted text-sm">No transitions recorded.</div>
-        {% endif %}
-      </div>
+    {# ==== Actions (open + done) ==== #}
+    <div class="panel">
+      <h2>Open actions</h2>
+      <form method="post" action="/products/{{ product.id }}/action" class="stack" style="margin-top: 8px;">
+        <input type="text" name="title" placeholder="e.g. Follow up with demand team on obsoletion approval" required>
+        <div class="row">
+          <label class="field">Due<input type="date" name="due_date"></label>
+          <label class="field">Assignee
+            <select name="assignee_id">
+              <option value="">Unassigned</option>
+              {% for u in all_users %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
+            </select>
+          </label>
+          <div class="spacer"></div>
+          <button type="submit" class="btn btn-primary">{{ icon('plus', 14) }} Add action</button>
+        </div>
+      </form>
+      <div class="divider"></div>
+      <table class="data-table">
+        <thead><tr><th>Title</th><th>Due</th><th>Assignee</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for a in actions %}
+            <tr>
+              <td>{% if a.status == 'done' %}<s>{{ a.title }}</s>{% else %}{{ a.title }}{% endif %}</td>
+              <td class="nowrap">{{ a.due_date|fmt_date if a.due_date else '—' }}</td>
+              <td>{{ a.assignee.name if a.assignee else '—' }}</td>
+              <td>
+                {% if a.status == 'done' %}
+                  <span class="chip chip--ok">{{ icon('check', 10) }} done</span>
+                {% else %}
+                  <span class="chip">open</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if a.status == 'open' %}
+                  <form method="post" action="/actions/{{ a.id }}/complete">
+                    <button type="submit" class="btn btn-subtle btn-sm">Mark done</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr class="empty-row"><td colspan="5">No actions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
+
+  {# ==== Right sidebar: Key info / Tags / Review / Owner ==== #}
+  <div>
+    <div class="panel">
+      <h2>Key info</h2>
+      <dl class="kv-grid" style="margin-top: 8px;">
+        <dt>Status</dt>
+        <dd>
+          <span class="chip" style="background: {{ (current_stage.color if current_stage else '#e5e7eb') }}20; border-color: {{ (current_stage.color if current_stage else '#e5e7eb') }}; color: {{ (current_stage.color if current_stage else '#475569') }};">{{ product.stage_code }}</span>
+          {% if current_stage and current_stage.expected_days %}
+            <span class="text-muted text-sm"> · {{ current_stage.expected_days }}d expected</span>
+          {% endif %}
+        </dd>
+        <dt>MRP profile</dt><dd class="mono">{{ product.mrp_profile or '—' }}</dd>
+        <dt>Days in stage</dt>
+        <dd>{{ days }}{% if overrun %} <span class="chip chip--warn">overrun</span>{% endif %}</dd>
+        <dt>First seen</dt><dd>{{ product.first_seen_at|fmt_date }}</dd>
+        <dt>Last seen</dt><dd>{{ product.last_seen_at|fmt_date }}</dd>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <h2>Tags</h2>
+      <div class="tag-list" style="margin: 8px 0 10px;">
+        {% for t in product.tags %}
+          <form method="post" action="/products/{{ product.id }}/tags/{{ t.id }}/remove" style="display:inline;">
+            <button type="submit" class="chip chip--button" style="--tag-color: {{ t.color }};" title="Click to remove">
+              {{ t.label }} {{ icon('x', 10) }}
+            </button>
+          </form>
+        {% else %}
+          <span class="text-muted text-sm">No tags yet.</span>
+        {% endfor %}
+      </div>
+      <form method="post" action="/products/{{ product.id }}/tags/add" class="row">
+        <select name="tag_id" required>
+          <option value="">Add tag…</option>
+          {% set cur_ids = product.tags|map(attribute='id')|list %}
+          {% for t in all_tags %}
+            {% if t.id not in cur_ids %}
+              <option value="{{ t.id }}">{{ t.label }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Review</h2>
+      <form method="post" action="/products/{{ product.id }}/review" class="stack" style="margin-top: 8px;">
+        <label class="field">Next review date
+          <input type="date" name="next_review_date"
+                 value="{{ product.next_review_date.strftime('%Y-%m-%d') if product.next_review_date else '' }}">
+        </label>
+        <label class="field">Review note (short summary, visible on Obs review page)
+          <textarea name="review_note" placeholder="e.g. Demand down 30% vs forecast, propose to move to O2 next month.">{{ product.review_note }}</textarea>
+        </label>
+        <div class="row-end">
+          <button type="submit" class="btn btn-secondary btn-sm">Save review</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Owner</h2>
+      <form method="post" action="/products/{{ product.id }}/owner" class="stack" style="margin-top: 8px;">
+        <select name="owner_id">
+          <option value="">Unassigned</option>
+          {% for u in all_users %}
+            <option value="{{ u.id }}" {% if product.owner_id == u.id %}selected{% endif %}>{{ u.name or u.email }}</option>
+          {% endfor %}
+        </select>
+        <div class="row-end">
+          <button type="submit" class="btn btn-secondary btn-sm">Save owner</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ==== Stage-change modal ==== #}
+<dialog id="stage-modal" class="plct-dialog">
+  <form method="post" action="/products/{{ product.id }}/stage" class="stack" style="min-width: 420px;">
+    <h2 style="margin: 0 0 6px;">Change stage</h2>
+    <p class="text-sm text-muted" style="margin: 0 0 8px;">
+      Manual change bypasses SAP upload — you can move ahead of what's in the extract while planning.
+    </p>
+    <label class="field">New stage
+      <select name="stage_code" required>
+        {% for s in all_stages %}
+          <option value="{{ s.code }}" {% if s.code == product.stage_code %}selected{% endif %}>{{ s.code }} — {{ s.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">Rationale (why)
+      <textarea name="rationale" placeholder="e.g. Demand team approved obsoletion plan on 12 Apr — moving to O2."></textarea>
+    </label>
+    <div class="row-end">
+      <button type="button" class="btn btn-subtle" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save stage change</button>
+    </div>
+  </form>
+</dialog>
+
 {% endblock %}

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Admin – PLCtracker{% endblock %}
+{% block content %}
+<h1>Admin</h1>
+
+<div class="panel">
+  <h2>Users</h2>
+  <table class="products">
+    <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Active</th><th></th></tr></thead>
+    <tbody>
+      {% for u in users %}
+        <tr>
+          <td>{{ u.email }}</td>
+          <td>{{ u.name }}</td>
+          <td>{{ u.role }}</td>
+          <td>{{ 'yes' if u.is_active else 'no' }}</td>
+          <td>
+            <form method="post" action="/admin/users/{{ u.id }}/password" class="row">
+              <input type="password" name="new_password" placeholder="New password" required>
+              <button type="submit" class="subtle">Reset</button>
+            </form>
+            <form method="post" action="/admin/users/{{ u.id }}/deactivate" style="margin-top:4px;">
+              <button type="submit" class="subtle">{{ 'Deactivate' if u.is_active else 'Activate' }}</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h3>Create user</h3>
+  <form method="post" action="/admin/users" class="row">
+    <input type="email" name="email" placeholder="email" required>
+    <input type="text" name="name" placeholder="Name">
+    <input type="password" name="password" placeholder="password" required>
+    <select name="role">
+      <option value="editor">editor</option>
+      <option value="admin">admin</option>
+      <option value="viewer">viewer</option>
+    </select>
+    <button type="submit" class="primary">Add</button>
+  </form>
+</div>
+
+<div class="panel">
+  <h2>Plants</h2>
+  <table class="products">
+    <thead><tr><th>Code</th><th>Type</th><th>Description</th><th></th></tr></thead>
+    <tbody>
+      {% for p in plants %}
+        <tr>
+          <form method="post" action="/admin/plants/{{ p.plant_code }}">
+            <td>{{ p.plant_code }}</td>
+            <td>
+              <select name="plant_type">
+                <option value="factory" {% if p.plant_type == 'factory' %}selected{% endif %}>factory</option>
+                <option value="warehouse" {% if p.plant_type == 'warehouse' %}selected{% endif %}>warehouse</option>
+                <option value="other" {% if p.plant_type == 'other' %}selected{% endif %}>other</option>
+              </select>
+            </td>
+            <td><input type="text" name="description" value="{{ p.description }}"></td>
+            <td><button type="submit" class="subtle">Save</button></td>
+          </form>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>Lifecycle stages</h2>
+  <table class="products">
+    <thead><tr><th>Code</th><th>Label</th><th>Family</th><th>Order</th><th>Color</th><th>Terminal</th><th></th></tr></thead>
+    <tbody>
+      {% for s in stages %}
+        <tr>
+          <form method="post" action="/admin/stages/{{ s.code }}">
+            <td>{{ s.code }}</td>
+            <td><input type="text" name="label" value="{{ s.label }}"></td>
+            <td><input type="text" name="family" value="{{ s.family }}"></td>
+            <td><input type="number" name="display_order" value="{{ s.display_order }}" style="width:60px;"></td>
+            <td><input type="text" name="color" value="{{ s.color }}" style="width:90px;"></td>
+            <td><input type="checkbox" name="is_terminal" {% if s.is_terminal %}checked{% endif %} value="1"></td>
+            <td><button type="submit" class="subtle">Save</button></td>
+          </form>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>MRP rules</h2>
+  <p style="color:#6b7280;">Cell = expected MRP profile for that (plant, status). Leave blank to remove a rule. "All plants" column = plant-agnostic; plant-specific wins.</p>
+  <table class="matrix">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>All plants</th>
+        {% for pl in plants %}<th>{{ pl.plant_code }}<br><small>{{ pl.plant_type }}</small></th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in stages %}
+        <tr>
+          <th>{{ s.code }}</th>
+          <td>
+            <form method="post" action="/admin/mrp_rules">
+              <input type="hidden" name="stage_code" value="{{ s.code }}">
+              <input type="hidden" name="plant_code" value="">
+              <input type="text" name="expected_mrp_profile" value="{{ matrix.get(s.code, {}).get('*', '') }}">
+              <button type="submit" class="subtle" style="padding:2px 6px;">Save</button>
+            </form>
+          </td>
+          {% for pl in plants %}
+            <td>
+              <form method="post" action="/admin/mrp_rules">
+                <input type="hidden" name="stage_code" value="{{ s.code }}">
+                <input type="hidden" name="plant_code" value="{{ pl.plant_code }}">
+                <input type="text" name="expected_mrp_profile" value="{{ matrix.get(s.code, {}).get(pl.plant_code, '') }}">
+                <button type="submit" class="subtle" style="padding:2px 6px;">Save</button>
+              </form>
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>Upload history</h2>
+  <table class="products">
+    <thead><tr><th>When</th><th>By</th><th>Filename</th><th>Rows</th></tr></thead>
+    <tbody>
+      {% for snap in snapshots %}
+        <tr>
+          <td>{{ snap.uploaded_at|fmt_date }}</td>
+          <td>{{ snap.uploader.name or snap.uploader.email }}</td>
+          <td>{{ snap.filename }}</td>
+          <td>{{ snap.row_count }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" style="text-align:center; color:#9ca3af;">No uploads yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

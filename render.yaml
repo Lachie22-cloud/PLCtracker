@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: plctracker
+    env: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    disk:
+      name: plct-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PLCT_DB_PATH
+        value: /data/app.db
+      - key: PLCT_SECRET_KEY
+        generateValue: true
+      - key: PLCT_ADMIN_EMAIL
+        sync: false
+      - key: PLCT_ADMIN_PASSWORD
+        sync: false
+      - key: PLCT_ADMIN_NAME
+        value: Admin

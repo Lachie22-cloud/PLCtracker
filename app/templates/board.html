@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Board – PLCtracker{% endblock %}
+{% block content %}
+<h1>Status board</h1>
+<div class="panel">
+  {% with show_stage=False %}{% include "_filters.html" %}{% endwith %}
+</div>
+
+<div class="board">
+  {% for stage in all_stages %}
+    {% set items = by_stage.get(stage.code, []) %}
+    <div class="column">
+      <div class="column-header">
+        <span>
+          <span class="dot" style="background: {{ stage.color }};"></span>
+          <strong>{{ stage.code }}</strong>
+          <span style="color:#6b7280; margin-left:4px;">{{ stage.label }}</span>
+        </span>
+        <span class="count">{{ items|length }}</span>
+      </div>
+      <div class="column-body">
+        {% for p in items %}
+          <a href="/products/{{ p.id }}" style="color:inherit; text-decoration: none;">
+          <div class="card">
+            <div class="material">{{ p.material_no }}</div>
+            <div class="meta">
+              <span class="badge {{ 'factory' if (p.plant_code.endswith('F00')) else 'warehouse' }}">{{ p.plant_code }}</span>
+              <span>MRP: {{ p.mrp_profile or '—' }}</span>
+              <span>{{ p.stage_since|days_since }}d</span>
+              {% if p.mrp_mismatch %}<span class="badge warn">MRP</span>{% endif %}
+              {% if p.family_mismatch %}<span class="badge warn">FAMILY</span>{% endif %}
+              {% if p.owner %}<span>· {{ p.owner.name or p.owner.email }}</span>{% endif %}
+            </div>
+          </div>
+          </a>
+        {% else %}
+          <div style="padding:12px; color:#9ca3af; font-size:12px;">No products</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

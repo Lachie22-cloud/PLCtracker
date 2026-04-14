@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – PLCtracker{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="panel">
+  {% set selected_stages = [] %}
+  {% with show_stage=False, action='/dashboard' %}{% include "_filters.html" %}{% endwith %}
+</div>
+
+<div class="tile-row">
+  <div class="tile"><div class="label">Total products</div><div class="value">{{ total_products }}</div></div>
+  {% for s in all_stages %}
+    <div class="tile">
+      <div class="label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ s.color }};"></span> {{ s.code }} — {{ s.label }}</div>
+      <div class="value">{{ counts.get(s.code, 0) }}</div>
+    </div>
+  {% endfor %}
+  <div class="tile {% if mrp_mismatch_count %}warn{% endif %}">
+    <div class="label">MRP mismatches</div>
+    <div class="value"><a href="/products?mismatch=mrp" style="color:inherit;">{{ mrp_mismatch_count }}</a></div>
+  </div>
+  <div class="tile {% if family_mismatch_count %}warn{% endif %}">
+    <div class="label">Family mismatches (factory vs warehouse)</div>
+    <div class="value"><a href="/products?mismatch=family" style="color:inherit;">{{ family_mismatch_count }}</a></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Products per stage</h2>
+  <canvas id="stageChart" height="120"></canvas>
+</div>
+
+<div class="panel">
+  <h2>Aging (days in current stage)</h2>
+  <canvas id="agingChart" height="100"></canvas>
+</div>
+
+<div class="panel">
+  <h2>Recent stage transitions</h2>
+  <table class="products">
+    <thead><tr><th>Product</th><th>From</th><th>To</th><th>When</th></tr></thead>
+    <tbody>
+      {% for t in transitions %}
+        <tr>
+          <td><a href="/products/{{ t.product_id }}">#{{ t.product_id }}</a></td>
+          <td>{{ t.from_stage_code or '—' }}</td>
+          <td>{{ t.to_stage_code }}</td>
+          <td>{{ t.detected_at|fmt_date }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" style="text-align:center; color:#9ca3af;">No transitions in the last 90 days.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const stageLabels = {{ all_stages | map(attribute='code') | list | tojson }};
+  const stageColors = {{ all_stages | map(attribute='color') | list | tojson }};
+  const stageCounts = stageLabels.map(c => {{ counts | tojson }}[c] || 0);
+  new Chart(document.getElementById('stageChart'), {
+    type: 'bar',
+    data: { labels: stageLabels, datasets: [{ label: 'Products', data: stageCounts, backgroundColor: stageColors }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+  const aging = {{ aging | tojson }};
+  new Chart(document.getElementById('agingChart'), {
+    type: 'bar',
+    data: { labels: Object.keys(aging), datasets: [{ label: 'Products', data: Object.values(aging), backgroundColor: '#60a5fa' }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Sign in – PLCtracker{% endblock %}
+{% block content %}
+<div class="login-box">
+  <h1>PLCtracker</h1>
+  <p style="color:#6b7280; margin-top:0;">Sign in to continue.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{{ next }}">
+    <input type="email" name="email" placeholder="Email" required autofocus>
+    <input type="password" name="password" placeholder="Password" required>
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+{% endblock %}

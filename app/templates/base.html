@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}PLCtracker{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+</head>
+<body>
+  {% if user %}
+  <header class="topbar">
+    <span class="brand">PLCtracker</span>
+    <a href="/board" class="{% if request.url.path == '/board' %}active{% endif %}">Board</a>
+    <a href="/products" class="{% if request.url.path == '/products' %}active{% endif %}">Table</a>
+    <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="/upload" class="{% if request.url.path == '/upload' %}active{% endif %}">Upload</a>
+    {% if user.role == 'admin' %}
+      <a href="/admin" class="{% if request.url.path == '/admin' %}active{% endif %}">Admin</a>
+    {% endif %}
+    <span class="spacer"></span>
+    <span style="color:#9ca3af; margin-right:12px;">{{ user.name or user.email }}</span>
+    <form method="post" action="/logout"><button type="submit">Logout</button></form>
+  </header>
+  {% endif %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

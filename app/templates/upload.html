@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Upload – PLCtracker{% endblock %}
+{% block content %}
+<h1>Upload SAP extract</h1>
+
+<div class="panel">
+  <p>Accepted formats: CSV or XLSX. Required columns (header name, in any order):</p>
+  <ul>
+    <li><strong>Material</strong> (MATNR)</li>
+    <li><strong>Plant</strong></li>
+    <li><strong>Plant-sp.matl status</strong> (PLC status code: N1/N2/A1/O1/O2/O3)</li>
+    <li><strong>MRP profile</strong></li>
+  </ul>
+
+  {% if error %}<div class="error">Upload failed: {{ error }}</div>{% endif %}
+
+  <form method="post" action="/upload" enctype="multipart/form-data" class="row">
+    <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
+    <button type="submit" class="primary">Upload</button>
+  </form>
+</div>
+
+{% if summary %}
+<div class="panel">
+  <h2>Upload summary (snapshot #{{ summary.snapshot_id }})</h2>
+  <div class="tile-row">
+    <div class="tile"><div class="label">Rows</div><div class="value">{{ summary.row_count }}</div></div>
+    <div class="tile"><div class="label">Added</div><div class="value">{{ summary.added }}</div></div>
+    <div class="tile"><div class="label">Updated</div><div class="value">{{ summary.updated }}</div></div>
+    <div class="tile"><div class="label">Stage changed</div><div class="value">{{ summary.stage_changed }}</div></div>
+    <div class="tile"><div class="label">Missing from upload</div><div class="value">{{ summary.removed }}</div></div>
+    <div class="tile {% if summary.mrp_mismatches %}warn{% endif %}"><div class="label">MRP mismatches</div><div class="value"><a href="/products?mismatch=mrp" style="color:inherit;">{{ summary.mrp_mismatches }}</a></div></div>
+    <div class="tile {% if summary.family_mismatches %}warn{% endif %}"><div class="label">Family mismatches</div><div class="value"><a href="/products?mismatch=family" style="color:inherit;">{{ summary.family_mismatches }}</a></div></div>
+  </div>
+  {% if summary.unknown_plants %}
+    <p>New plants auto-added (as warehouse): {{ summary.unknown_plants|join(', ') }}. Reclassify in <a href="/admin">Admin</a> if needed.</p>
+  {% endif %}
+  {% if summary.unknown_stages %}
+    <p>New stages auto-added: {{ summary.unknown_stages|join(', ') }}. Rename / reorder in <a href="/admin">Admin</a>.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

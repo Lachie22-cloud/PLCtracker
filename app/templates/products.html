@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Products – PLCtracker{% endblock %}
+{% block content %}
+<h1>Products</h1>
+<div class="panel">
+  {% with show_stage=True %}{% include "_filters.html" %}{% endwith %}
+  <div class="row" style="margin-top:8px;">
+    <a href="?mismatch=mrp" class="badge warn" style="padding:4px 8px;">Show only MRP mismatches</a>
+    <a href="?mismatch=family" class="badge warn" style="padding:4px 8px;">Show only family mismatches</a>
+    <a href="/export.csv?{{ request.url.query }}" class="badge info" style="padding:4px 8px;">Download CSV</a>
+    <span style="color:#6b7280;">{{ products|length }} rows</span>
+  </div>
+</div>
+
+<table class="products">
+  <thead>
+    <tr>
+      <th>Material</th>
+      <th>Plant</th>
+      <th>Stage</th>
+      <th>MRP</th>
+      <th>Days in stage</th>
+      <th>Owner</th>
+      <th>Flags</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in products %}
+      <tr class="{% if p.mrp_mismatch or p.family_mismatch %}warn{% endif %}">
+        <td><a href="/products/{{ p.id }}">{{ p.material_no }}</a></td>
+        <td>{{ p.plant_code }}</td>
+        <td>{{ p.stage_code }}</td>
+        <td>{{ p.mrp_profile }}</td>
+        <td>{{ p.stage_since|days_since }}</td>
+        <td>{{ p.owner.name if p.owner else '' }}</td>
+        <td>
+          {% if p.mrp_mismatch %}<span class="badge warn">MRP</span>{% endif %}
+          {% if p.family_mismatch %}<span class="badge warn">FAMILY</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" style="text-align:center; color:#9ca3af;">No products match the filters.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

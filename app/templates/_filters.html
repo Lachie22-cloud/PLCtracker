@@ -1,0 +1,35 @@
+{#
+  Reusable filter bar. Parameters:
+    action: form action URL
+    show_stage: whether to show the stage selector (board uses columns instead)
+#}
+<form class="filters" method="get" action="{{ action }}">
+  <label>Plant
+    <select name="plant" multiple size="4" style="min-width:120px;">
+      {% for pl in all_plants %}
+        <option value="{{ pl.plant_code }}" {% if pl.plant_code in selected_plants %}selected{% endif %}>{{ pl.plant_code }} ({{ pl.plant_type }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Material contains
+    <input type="text" name="material" value="{{ selected_material }}" placeholder="e.g. 07528171">
+  </label>
+  {% if show_stage %}
+  <label>Status
+    <select name="stage" multiple size="4" style="min-width:140px;">
+      {% for s in all_stages %}
+        <option value="{{ s.code }}" {% if s.code in selected_stages %}selected{% endif %}>{{ s.code }} — {{ s.label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <label>Owner
+    <select name="owner" multiple size="4" style="min-width:140px;">
+      {% for u in all_owners %}
+        <option value="{{ u.id }}" {% if u.id in selected_owners %}selected{% endif %}>{{ u.name or u.email }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Apply</button>
+  <a class="reset" href="{{ action }}"><button type="button" class="reset">Reset</button></a>
+</form>

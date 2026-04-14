@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .auth import hash_password
 from .config import settings
 from .db import Base, engine, db_session
-from .models import LifecycleStage, MrpRule, Plant, User
+from .models import LifecycleStage, MrpRule, Plant, Product, SchemaMeta, User
 
 
 SEED_DIR = Path(__file__).resolve().parent.parent / "seed"
@@ -82,6 +82,32 @@ def _ensure_admin(db: Session) -> None:
     )
 
 
+def _migration_drop_new_active_mrp_rules(db: Session) -> None:
+    """One-shot: N1/N2/A1 are now considered 'any MRP profile OK'.
+
+    Drop any seeded or previously-created MRP rules for those stages and clear
+    stale mismatch flags on the affected products. Tracked in ``schema_meta``
+    so this only runs once per database.
+    """
+    key = "drop_new_active_mrp_rules_v1"
+    if db.query(SchemaMeta).filter(SchemaMeta.key == key).first():
+        return
+
+    db.query(MrpRule).filter(MrpRule.stage_code.in_(["N1", "N2", "A1"])).delete(
+        synchronize_session=False
+    )
+    # Clear stale flags; next upload will recompute anyway but this keeps the
+    # UI honest in the meantime.
+    db.query(Product).filter(
+        Product.stage_code.in_(["N1", "N2", "A1"]),
+        Product.mrp_mismatch.is_(True),
+    ).update(
+        {"mrp_mismatch": False, "mrp_mismatch_note": ""},
+        synchronize_session=False,
+    )
+    db.add(SchemaMeta(key=key, value="applied"))
+
+
 def bootstrap() -> None:
     """Create tables and seed data. Safe to call on every startup."""
     Base.metadata.create_all(bind=engine)
@@ -92,3 +118,5 @@ def bootstrap() -> None:
         db.flush()
         _seed_mrp_rules(db)
         _ensure_admin(db)
+        db.flush()
+        _migration_drop_new_active_mrp_rules(db)

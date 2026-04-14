@@ -45,6 +45,15 @@ class Plant(Base):
     description: Mapped[str] = mapped_column(String(128), nullable=False, default="")
 
 
+class SchemaMeta(Base):
+    """Key-value table used to track one-shot migrations applied to the DB."""
+
+    __tablename__ = "schema_meta"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+
 class MrpRule(Base):
     """Expected MRP profile per (plant, stage). plant NULL = applies to all plants."""
 

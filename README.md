@@ -61,17 +61,22 @@ pandas / openpyxl for uploads, passlib+bcrypt for auth.
 
 ## MRP rules (seeded)
 
-| Status | Plant                       | Expected MRP |
-| ------ | --------------------------- | ------------ |
-| A1     | QF00                        | MTSF         |
-| A1     | NW00 / QW00 / VW00 / WW00   | MTSW         |
-| A1     | TW00                        | VWRP         |
-| O1     | (any)                       | NOPL         |
-| O2     | (any)                       | NOPL         |
-| O3     | (any)                       | OBSO         |
+Only the obsoletion stages have a required MRP profile. **N1, N2, and A1
+accept any MRP profile without warning** — the field is tracked and shown,
+but it isn't validated.
 
-N1 and N2 have no rule by default — fill them in via Admin → MRP rules
-when ready.
+| Status | Plant | Expected MRP |
+| ------ | ----- | ------------ |
+| N1     | any   | *not validated* |
+| N2     | any   | *not validated* |
+| A1     | any   | *not validated* |
+| O1     | any   | NOPL         |
+| O2     | any   | NOPL         |
+| O3     | any   | OBSO         |
+
+All rules are editable per-plant (or "All plants") in Admin → MRP rules.
+Leaving a cell blank removes the rule, which means rows with that status
+at that plant won't be flagged.
 
 ## Running locally
 

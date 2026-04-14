@@ -1,10 +1,4 @@
 plant_code,stage_code,expected_mrp_profile
-QF00,A1,MTSF
-NW00,A1,MTSW
-QW00,A1,MTSW
-VW00,A1,MTSW
-WW00,A1,MTSW
-TW00,A1,VWRP
 ,O1,NOPL
 ,O2,NOPL
 ,O3,OBSO

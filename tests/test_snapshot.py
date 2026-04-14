@@ -26,27 +26,31 @@ def test_parse_aliases_and_casing():
 
 
 def test_upsert_and_mrp_flags():
+    """N1/N2/A1 have no rule (any MRP OK); O1/O2/O3 are strict."""
     from app.db import db_session
     from app.models import Product
     from app.services.snapshot import process_upload
 
     rows = [
-        ("01989176-1L", "QF00", "A1", "MTSF"),   # ok
-        ("06250759-4L", "QF00", "O1", "NOPL"),   # ok (plant-agnostic rule)
-        ("07528171-15L", "QF00", "A1", "NOPL"),  # MRP mismatch (expected MTSF)
+        ("01989176-1L", "QF00", "A1", "MTSF"),   # A1 has no rule -> ok
+        ("07528171-15L", "QF00", "A1", "NOPL"),  # A1 has no rule -> ok (any MRP)
+        ("06250759-4L", "QF00", "O1", "NOPL"),   # O1 -> NOPL, ok
+        ("06482670-1L", "QF00", "O1", "MTSF"),   # O1 expects NOPL, mismatch
     ]
     with db_session() as db:
         uid = _get_admin_id(db)
         summary = process_upload(
             db, content=_csv(rows), filename="t.csv", uploaded_by_id=uid
         )
-        assert summary.row_count == 3
-        assert summary.added == 3
+        assert summary.row_count == 4
+        assert summary.added == 4
         assert summary.mrp_mismatches == 1
 
         products = {(p.material_no, p.plant_code): p for p in db.query(Product).all()}
         assert products[("01989176-1L", "QF00")].mrp_mismatch is False
-        assert products[("07528171-15L", "QF00")].mrp_mismatch is True
+        assert products[("07528171-15L", "QF00")].mrp_mismatch is False  # A1 any MRP OK
+        assert products[("06250759-4L", "QF00")].mrp_mismatch is False
+        assert products[("06482670-1L", "QF00")].mrp_mismatch is True
 
 
 def test_family_mismatch_detection():

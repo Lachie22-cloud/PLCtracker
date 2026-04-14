@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -27,9 +27,9 @@ async def dashboard(
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
-    plant: Optional[List[str]] = None,
+    plant: List[str] = Query(default=[]),
     material: Optional[str] = None,
-    owner: Optional[List[int]] = None,
+    owner: List[int] = Query(default=[]),
 ):
     stages = list(
         db.scalars(select(LifecycleStage).order_by(LifecycleStage.display_order)).all()

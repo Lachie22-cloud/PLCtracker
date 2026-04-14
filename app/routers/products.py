@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -57,9 +57,9 @@ async def board(
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
-    plant: Optional[List[str]] = None,
+    plant: List[str] = Query(default=[]),
     material: Optional[str] = None,
-    owner: Optional[List[int]] = None,
+    owner: List[int] = Query(default=[]),
 ):
     ctx = _filter_context(db)
     q = select(Product)
@@ -89,10 +89,10 @@ async def products_table(
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
-    plant: Optional[List[str]] = None,
+    plant: List[str] = Query(default=[]),
     material: Optional[str] = None,
-    stage: Optional[List[str]] = None,
-    owner: Optional[List[int]] = None,
+    stage: List[str] = Query(default=[]),
+    owner: List[int] = Query(default=[]),
     mismatch: Optional[str] = None,
 ):
     ctx = _filter_context(db)

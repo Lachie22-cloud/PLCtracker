@@ -10,15 +10,18 @@
 
 <form class="filter-bar" method="get" action="{{ action }}">
   {# ---------- Plant ---------- #}
-  <div class="filter-pop" x-data="{ open: false, count: {{ (selected_plants or [])|length }} }"
+  <div class="filter-pop"
+       x-data="{ open: false, count: {{ (selected_plants or [])|length }} }"
+       @click.outside="open = false"
        :data-open="open">
     <button type="button" class="filter-trigger" :class="count > 0 && 'has-value'"
-            @click="open = !open" @click.outside="open = false">
+            @click="open = !open">
       <span class="label">Plant:</span>
       <span class="value" x-text="count === 0 ? 'All' : (count === 1 ? '1 selected' : (count + ' selected'))"></span>
       {{ icon('chevron-down', 14, 'chevron') }}
     </button>
-    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
+    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms
+         @click.stop>
       {% for pl in all_plants %}
         <label class="check-item">
           <input type="checkbox" name="plant" value="{{ pl.plant_code }}"
@@ -34,15 +37,18 @@
 
   {# ---------- Status (optional) ---------- #}
   {% if show_stage %}
-  <div class="filter-pop" x-data="{ open: false, count: {{ (selected_stages or [])|length }} }"
+  <div class="filter-pop"
+       x-data="{ open: false, count: {{ (selected_stages or [])|length }} }"
+       @click.outside="open = false"
        :data-open="open">
     <button type="button" class="filter-trigger" :class="count > 0 && 'has-value'"
-            @click="open = !open" @click.outside="open = false">
+            @click="open = !open">
       <span class="label">Status:</span>
       <span class="value" x-text="count === 0 ? 'All' : (count === 1 ? '1 selected' : (count + ' selected'))"></span>
       {{ icon('chevron-down', 14, 'chevron') }}
     </button>
-    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
+    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms
+         @click.stop>
       {% for s in all_stages %}
         <label class="check-item">
           <input type="checkbox" name="stage" value="{{ s.code }}"
@@ -58,15 +64,18 @@
   {% endif %}
 
   {# ---------- Owner ---------- #}
-  <div class="filter-pop" x-data="{ open: false, count: {{ (selected_owners or [])|length }} }"
+  <div class="filter-pop"
+       x-data="{ open: false, count: {{ (selected_owners or [])|length }} }"
+       @click.outside="open = false"
        :data-open="open">
     <button type="button" class="filter-trigger" :class="count > 0 && 'has-value'"
-            @click="open = !open" @click.outside="open = false">
+            @click="open = !open">
       <span class="label">Owner:</span>
       <span class="value" x-text="count === 0 ? 'All' : (count === 1 ? '1 selected' : (count + ' selected'))"></span>
       {{ icon('chevron-down', 14, 'chevron') }}
     </button>
-    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
+    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms
+         @click.stop>
       {% for u in all_owners %}
         <label class="check-item">
           <input type="checkbox" name="owner" value="{{ u.id }}"

@@ -5,7 +5,7 @@ import csv
 import io
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,10 +21,10 @@ router = APIRouter()
 async def export_csv(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
-    plant: Optional[List[str]] = None,
+    plant: List[str] = Query(default=[]),
     material: Optional[str] = None,
-    stage: Optional[List[str]] = None,
-    owner: Optional[List[int]] = None,
+    stage: List[str] = Query(default=[]),
+    owner: List[int] = Query(default=[]),
     mismatch: Optional[str] = None,
 ):
     q = select(Product).order_by(Product.material_no, Product.plant_code)

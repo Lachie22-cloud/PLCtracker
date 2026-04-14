@@ -1,104 +1,143 @@
 {% extends "base.html" %}
-{% block title %}{{ product.material_no }} – {{ product.plant_code }}{% endblock %}
+{% block title %}{{ product.material_no }} · {{ product.plant_code }}{% endblock %}
 {% block content %}
-<p><a href="/products">← All products</a></p>
-<h1>{{ product.material_no }} <span style="color:#6b7280; font-weight:normal;">@ {{ product.plant_code }}</span></h1>
+<a class="back-link" href="/products">← All products</a>
 
-<div class="panel">
-  <div class="row">
-    <div><strong>Status:</strong> {{ product.stage_code }}</div>
-    <div><strong>MRP profile:</strong> {{ product.mrp_profile or '—' }}</div>
-    <div><strong>Days in stage:</strong> {{ product.stage_since|days_since }}</div>
-    <div><strong>First seen:</strong> {{ product.first_seen_at|fmt_date }}</div>
-    <div><strong>Last seen:</strong> {{ product.last_seen_at|fmt_date }}</div>
-  </div>
-  {% if product.mrp_mismatch %}<p class="mismatch-note">⚠ MRP mismatch: {{ product.mrp_mismatch_note }}</p>{% endif %}
-  {% if product.family_mismatch %}<p class="mismatch-note">⚠ Family mismatch: {{ product.family_mismatch_note }}</p>{% endif %}
-</div>
-
-<div class="panel">
-  <h2>Owner</h2>
-  <form method="post" action="/products/{{ product.id }}/owner" class="row">
-    <select name="owner_id">
-      <option value="">— unassigned —</option>
-      {% for u in all_users %}
-        <option value="{{ u.id }}" {% if product.owner_id == u.id %}selected{% endif %}>{{ u.name or u.email }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="subtle">Save</button>
-  </form>
-</div>
-
-<div class="panel">
-  <h2>Actions</h2>
-  <form method="post" action="/products/{{ product.id }}/action" class="stack">
-    <input type="text" name="title" placeholder="Action title" required>
-    <div class="row">
-      <label>Due date <input type="date" name="due_date"></label>
-      <label>Assignee
-        <select name="assignee_id">
-          <option value="">— unassigned —</option>
-          {% for u in all_users %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
-        </select>
-      </label>
-      <button type="submit" class="primary">Add action</button>
+<div class="page-header">
+  <div>
+    <h1 class="mono" style="font-size: 20px;">{{ product.material_no }}</h1>
+    <div class="subtitle">
+      <span class="chip">{{ product.plant_code }}</span>
+      <span class="sep-dot"></span>
+      Current status <span class="chip" style="margin-left:4px;">{{ product.stage_code }}</span>
+      <span class="sep-dot"></span>
+      {{ product.stage_since|days_since }} days in stage
     </div>
-  </form>
-  <table class="products" style="margin-top:10px;">
-    <thead><tr><th>Title</th><th>Due</th><th>Assignee</th><th>Status</th><th></th></tr></thead>
-    <tbody>
-      {% for a in actions %}
-        <tr>
-          <td>{{ a.title }}</td>
-          <td>{{ a.due_date|fmt_date if a.due_date else '—' }}</td>
-          <td>{{ a.assignee.name if a.assignee else '' }}</td>
-          <td>{{ a.status }}</td>
-          <td>
-            {% if a.status == 'open' %}
-              <form method="post" action="/actions/{{ a.id }}/complete"><button type="submit" class="subtle">Mark done</button></form>
-            {% endif %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="5" style="text-align:center; color:#9ca3af;">No actions yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="panel">
-  <h2>Comments</h2>
-  <form method="post" action="/products/{{ product.id }}/comment" class="stack">
-    <textarea name="body" placeholder="Add a comment…" required></textarea>
-    <div><button type="submit" class="primary">Post comment</button></div>
-  </form>
-  <div style="margin-top:12px;">
-    {% for c in comments %}
-      <div class="comment">
-        <div class="who">{{ c.user.name or c.user.email }} · {{ c.created_at|fmt_date }}</div>
-        <div>{{ c.body }}</div>
-      </div>
-    {% else %}
-      <div style="color:#9ca3af;">No comments yet.</div>
-    {% endfor %}
   </div>
 </div>
 
-<div class="panel">
-  <h2>Stage history</h2>
-  <table class="products">
-    <thead><tr><th>From</th><th>To</th><th>Detected</th></tr></thead>
-    <tbody>
-      {% for t in transitions %}
-        <tr>
-          <td>{{ t.from_stage_code or '—' }}</td>
-          <td>{{ t.to_stage_code }}</td>
-          <td>{{ t.detected_at|fmt_date }}</td>
-        </tr>
+{% if product.mrp_mismatch %}
+  <div class="mismatch-banner" style="margin-bottom: 12px;">
+    <div><strong>MRP mismatch:</strong> {{ product.mrp_mismatch_note }}</div>
+  </div>
+{% endif %}
+{% if product.family_mismatch %}
+  <div class="mismatch-banner" style="margin-bottom: 12px;">
+    <div><strong>Family mismatch:</strong> {{ product.family_mismatch_note }}</div>
+  </div>
+{% endif %}
+
+<div class="detail-grid">
+  <div>
+    <div class="panel">
+      <h2>Overview</h2>
+      <dl class="kv-grid">
+        <dt>Material</dt><dd class="mono">{{ product.material_no }}</dd>
+        <dt>Plant</dt><dd class="mono">{{ product.plant_code }}</dd>
+        <dt>Status</dt><dd>{{ product.stage_code }}</dd>
+        <dt>MRP profile</dt><dd class="mono">{{ product.mrp_profile or '—' }}</dd>
+        <dt>Days in stage</dt><dd>{{ product.stage_since|days_since }}</dd>
+        <dt>First seen</dt><dd>{{ product.first_seen_at|fmt_date }}</dd>
+        <dt>Last seen</dt><dd>{{ product.last_seen_at|fmt_date }}</dd>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <h2>Actions</h2>
+      <form method="post" action="/products/{{ product.id }}/action" class="stack">
+        <input type="text" name="title" placeholder="e.g. Follow up with warehouse to update status" required>
+        <div class="row">
+          <div class="filters-group"><span class="filters-label">Due</span><input type="date" name="due_date"></div>
+          <div class="filters-group"><span class="filters-label">Assignee</span>
+            <select name="assignee_id" style="min-width:180px;">
+              <option value="">Unassigned</option>
+              {% for u in all_users %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="spacer"></div>
+          <button type="submit" class="btn btn-primary">Add action</button>
+        </div>
+      </form>
+      <div class="divider"></div>
+      <table class="data-table">
+        <thead><tr><th>Title</th><th>Due</th><th>Assignee</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for a in actions %}
+            <tr>
+              <td>{{ a.title }}</td>
+              <td class="nowrap">{{ a.due_date|fmt_date if a.due_date else '—' }}</td>
+              <td>{{ a.assignee.name if a.assignee else '—' }}</td>
+              <td><span class="chip {% if a.status == 'done' %}chip--ok{% else %}chip--info{% endif %}">{{ a.status }}</span></td>
+              <td>
+                {% if a.status == 'open' %}
+                  <form method="post" action="/actions/{{ a.id }}/complete">
+                    <button type="submit" class="btn btn-subtle btn-sm">Mark done</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr class="empty-row"><td colspan="5">No actions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Comments</h2>
+      <form method="post" action="/products/{{ product.id }}/comment" class="stack">
+        <textarea name="body" placeholder="Add a comment…" required></textarea>
+        <div class="row" style="justify-content:flex-end;">
+          <button type="submit" class="btn btn-primary">Post comment</button>
+        </div>
+      </form>
+      <div class="divider"></div>
+      {% for c in comments %}
+        <div class="comment">
+          {% set initials = (c.user.name or c.user.email)[:2]|upper %}
+          <div class="who">
+            <span class="avatar">{{ initials }}</span>
+            <strong style="color: var(--text);">{{ c.user.name or c.user.email }}</strong>
+            <span>·</span>
+            <span>{{ c.created_at|fmt_date }}</span>
+          </div>
+          <div style="margin-top: 4px;">{{ c.body }}</div>
+        </div>
       {% else %}
-        <tr><td colspan="3" style="text-align:center; color:#9ca3af;">No transitions recorded.</td></tr>
+        <div class="text-muted text-sm">No comments yet.</div>
       {% endfor %}
-    </tbody>
-  </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Owner</h2>
+      <form method="post" action="/products/{{ product.id }}/owner" class="stack">
+        <select name="owner_id">
+          <option value="">Unassigned</option>
+          {% for u in all_users %}
+            <option value="{{ u.id }}" {% if product.owner_id == u.id %}selected{% endif %}>{{ u.name or u.email }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-secondary btn-sm">Save owner</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Stage history</h2>
+      {% if transitions %}
+        <div class="timeline">
+          {% for t in transitions %}
+            <div class="timeline-item">
+              <div><strong>{{ t.from_stage_code or 'Created' }}</strong> → <strong>{{ t.to_stage_code }}</strong></div>
+              <div class="when">{{ t.detected_at|fmt_date }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-muted text-sm">No transitions recorded.</div>
+      {% endif %}
+    </div>
+  </div>
 </div>
 {% endblock %}

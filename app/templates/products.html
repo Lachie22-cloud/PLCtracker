@@ -1,24 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Products – PLCtracker{% endblock %}
+{% block title %}Products — PLCtracker{% endblock %}
 {% block content %}
-<h1>Products</h1>
-<div class="panel">
-  {% with show_stage=True %}{% include "_filters.html" %}{% endwith %}
-  <div class="row" style="margin-top:8px;">
-    <a href="?mismatch=mrp" class="badge warn" style="padding:4px 8px;">Show only MRP mismatches</a>
-    <a href="?mismatch=family" class="badge warn" style="padding:4px 8px;">Show only family mismatches</a>
-    <a href="/export.csv?{{ request.url.query }}" class="badge info" style="padding:4px 8px;">Download CSV</a>
-    <span style="color:#6b7280;">{{ products|length }} rows</span>
+<div class="page-header">
+  <div>
+    <h1>Products</h1>
+    <div class="subtitle">{{ products|length }} {{ 'row' if products|length == 1 else 'rows' }} matching the current filters.</div>
+  </div>
+  <div class="row">
+    <a href="/products?mismatch=mrp" class="chip chip--warn">MRP mismatches only</a>
+    <a href="/products?mismatch=family" class="chip chip--warn">Family mismatches only</a>
+    <a href="/export.csv?{{ request.url.query }}" class="btn btn-secondary">Download CSV</a>
   </div>
 </div>
 
-<table class="products">
+<div class="panel panel-tight">
+  {% with show_stage=True %}{% include "_filters.html" %}{% endwith %}
+</div>
+
+<table class="data-table">
   <thead>
     <tr>
       <th>Material</th>
       <th>Plant</th>
-      <th>Stage</th>
-      <th>MRP</th>
+      <th>Status</th>
+      <th>MRP profile</th>
       <th>Days in stage</th>
       <th>Owner</th>
       <th>Flags</th>
@@ -27,19 +32,29 @@
   <tbody>
     {% for p in products %}
       <tr class="{% if p.mrp_mismatch or p.family_mismatch %}warn{% endif %}">
-        <td><a href="/products/{{ p.id }}">{{ p.material_no }}</a></td>
-        <td>{{ p.plant_code }}</td>
-        <td>{{ p.stage_code }}</td>
-        <td>{{ p.mrp_profile }}</td>
+        <td class="nowrap"><a href="/products/{{ p.id }}" class="mono">{{ p.material_no }}</a></td>
+        <td class="nowrap"><span class="mono">{{ p.plant_code }}</span></td>
+        <td><span class="chip">{{ p.stage_code }}</span></td>
+        <td><span class="mono">{{ p.mrp_profile or '—' }}</span></td>
         <td>{{ p.stage_since|days_since }}</td>
-        <td>{{ p.owner.name if p.owner else '' }}</td>
         <td>
-          {% if p.mrp_mismatch %}<span class="badge warn">MRP</span>{% endif %}
-          {% if p.family_mismatch %}<span class="badge warn">FAMILY</span>{% endif %}
+          {% if p.owner %}
+            {% set initials = (p.owner.name or p.owner.email)[:2]|upper %}
+            <span class="row" style="gap:6px;">
+              <span class="avatar">{{ initials }}</span>
+              <span>{{ p.owner.name or p.owner.email }}</span>
+            </span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if p.mrp_mismatch %}<span class="chip chip--warn" title="{{ p.mrp_mismatch_note }}">MRP</span>{% endif %}
+          {% if p.family_mismatch %}<span class="chip chip--warn" title="{{ p.family_mismatch_note }}">FAM</span>{% endif %}
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="7" style="text-align:center; color:#9ca3af;">No products match the filters.</td></tr>
+      <tr class="empty-row"><td colspan="7">No products match the current filters.</td></tr>
     {% endfor %}
   </tbody>
 </table>

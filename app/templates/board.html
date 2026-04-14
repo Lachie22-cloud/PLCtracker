@@ -1,8 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Board – PLCtracker{% endblock %}
+{% block title %}Board — PLCtracker{% endblock %}
 {% block content %}
-<h1>Status board</h1>
-<div class="panel">
+<div class="page-header">
+  <div>
+    <h1>Status board</h1>
+    <div class="subtitle">Every product, grouped by lifecycle stage. Click a card to open details.</div>
+  </div>
+</div>
+
+<div class="panel panel-tight">
   {% with show_stage=False %}{% include "_filters.html" %}{% endwith %}
 </div>
 
@@ -10,31 +16,47 @@
   {% for stage in all_stages %}
     {% set items = by_stage.get(stage.code, []) %}
     <div class="column">
-      <div class="column-header">
-        <span>
-          <span class="dot" style="background: {{ stage.color }};"></span>
-          <strong>{{ stage.code }}</strong>
-          <span style="color:#6b7280; margin-left:4px;">{{ stage.label }}</span>
-        </span>
-        <span class="count">{{ items|length }}</span>
+      <div class="column__accent" style="background: {{ stage.color }};"></div>
+      <div class="column__header">
+        <div class="column__title">
+          <span class="column__code">{{ stage.code }}</span>
+          <span class="column__count">{{ items|length }}</span>
+        </div>
+        <div class="column__label">{{ stage.label }}</div>
       </div>
-      <div class="column-body">
+      <div class="column__body">
         {% for p in items %}
-          <a href="/products/{{ p.id }}" style="color:inherit; text-decoration: none;">
-          <div class="card">
-            <div class="material">{{ p.material_no }}</div>
-            <div class="meta">
-              <span class="badge {{ 'factory' if (p.plant_code.endswith('F00')) else 'warehouse' }}">{{ p.plant_code }}</span>
-              <span>MRP: {{ p.mrp_profile or '—' }}</span>
-              <span>{{ p.stage_since|days_since }}d</span>
-              {% if p.mrp_mismatch %}<span class="badge warn">MRP</span>{% endif %}
-              {% if p.family_mismatch %}<span class="badge warn">FAMILY</span>{% endif %}
-              {% if p.owner %}<span>· {{ p.owner.name or p.owner.email }}</span>{% endif %}
+          {% set days = p.stage_since|days_since %}
+          {% set is_warn = p.mrp_mismatch or p.family_mismatch %}
+          <a href="/products/{{ p.id }}" style="color:inherit;">
+            <div class="card {% if is_warn %}card--warn{% endif %}">
+              <div class="card__top">
+                <span class="card__material">{{ p.material_no }}</span>
+                <span class="card__chips">
+                  {% if p.mrp_mismatch %}<span class="chip chip--warn" title="{{ p.mrp_mismatch_note }}">MRP</span>{% endif %}
+                  {% if p.family_mismatch %}<span class="chip chip--warn" title="{{ p.family_mismatch_note }}">FAM</span>{% endif %}
+                </span>
+              </div>
+              <div class="card__meta">
+                <span>{{ p.plant_code }}</span>
+                <span class="sep">·</span>
+                <span>{{ p.mrp_profile or '—' }}</span>
+                {% if days > 0 %}
+                  <span class="sep">·</span>
+                  <span>{{ days }}d in stage</span>
+                {% endif %}
+              </div>
+              {% if p.owner %}
+                {% set initials = (p.owner.name or p.owner.email)[:2]|upper %}
+                <div class="card__owner">
+                  <span class="avatar">{{ initials }}</span>
+                  <span>{{ p.owner.name or p.owner.email }}</span>
+                </div>
+              {% endif %}
             </div>
-          </div>
           </a>
         {% else %}
-          <div style="padding:12px; color:#9ca3af; font-size:12px;">No products</div>
+          <div class="column__empty">No products</div>
         {% endfor %}
       </div>
     </div>

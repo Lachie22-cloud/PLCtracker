@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}PLCtracker{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
@@ -11,16 +14,18 @@
   {% if user %}
   <header class="topbar">
     <span class="brand">PLCtracker</span>
-    <a href="/board" class="{% if request.url.path == '/board' %}active{% endif %}">Board</a>
-    <a href="/products" class="{% if request.url.path == '/products' %}active{% endif %}">Table</a>
-    <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}active{% endif %}">Dashboard</a>
-    <a href="/upload" class="{% if request.url.path == '/upload' %}active{% endif %}">Upload</a>
-    {% if user.role == 'admin' %}
-      <a href="/admin" class="{% if request.url.path == '/admin' %}active{% endif %}">Admin</a>
-    {% endif %}
+    <nav>
+      <a href="/board"     class="{% if request.url.path == '/board'     %}active{% endif %}">Board</a>
+      <a href="/products"  class="{% if request.url.path == '/products'  %}active{% endif %}">Table</a>
+      <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="/upload"    class="{% if request.url.path == '/upload'    %}active{% endif %}">Upload</a>
+      {% if user.role == 'admin' %}
+        <a href="/admin"   class="{% if request.url.path == '/admin'     %}active{% endif %}">Admin</a>
+      {% endif %}
+    </nav>
     <span class="spacer"></span>
-    <span style="color:#9ca3af; margin-right:12px;">{{ user.name or user.email }}</span>
-    <form method="post" action="/logout"><button type="submit">Logout</button></form>
+    <span class="who">{{ user.name or user.email }}</span>
+    <form method="post" action="/logout"><button type="submit">Sign out</button></form>
   </header>
   {% endif %}
   <main>

@@ -1,35 +1,62 @@
 {#
-  Reusable filter bar. Parameters:
-    action: form action URL
-    show_stage: whether to show the stage selector (board uses columns instead)
+  Shared filter bar. Parameters:
+    action: form action URL (e.g. "/board", "/products", "/dashboard")
+    show_stage: whether to expose the status filter (board hides it — the
+                board uses columns per stage instead)
 #}
 <form class="filters" method="get" action="{{ action }}">
-  <label>Plant
-    <select name="plant" multiple size="4" style="min-width:120px;">
+  <div class="filters-group">
+    <span class="filters-label">Plant</span>
+    <div class="pill-row">
       {% for pl in all_plants %}
-        <option value="{{ pl.plant_code }}" {% if pl.plant_code in selected_plants %}selected{% endif %}>{{ pl.plant_code }} ({{ pl.plant_type }})</option>
+        <label class="pill">
+          <input type="checkbox" name="plant" value="{{ pl.plant_code }}"
+                 {% if pl.plant_code in selected_plants %}checked{% endif %}>
+          <span class="dot" style="background: {% if pl.plant_type == 'factory' %}#d97706{% elif pl.plant_type == 'warehouse' %}#7c3aed{% else %}#94a3b8{% endif %};"></span>
+          {{ pl.plant_code }}
+        </label>
       {% endfor %}
-    </select>
-  </label>
-  <label>Material contains
-    <input type="text" name="material" value="{{ selected_material }}" placeholder="e.g. 07528171">
-  </label>
+    </div>
+  </div>
+
   {% if show_stage %}
-  <label>Status
-    <select name="stage" multiple size="4" style="min-width:140px;">
+  <div class="filters-group">
+    <span class="filters-label">Status</span>
+    <div class="pill-row">
       {% for s in all_stages %}
-        <option value="{{ s.code }}" {% if s.code in selected_stages %}selected{% endif %}>{{ s.code }} — {{ s.label }}</option>
+        <label class="pill">
+          <input type="checkbox" name="stage" value="{{ s.code }}"
+                 {% if s.code in selected_stages %}checked{% endif %}>
+          <span class="dot" style="background: {{ s.color }};"></span>
+          {{ s.code }}
+        </label>
       {% endfor %}
-    </select>
-  </label>
+    </div>
+  </div>
   {% endif %}
-  <label>Owner
-    <select name="owner" multiple size="4" style="min-width:140px;">
+
+  <div class="filters-group">
+    <span class="filters-label">Material</span>
+    <input type="text" name="material" class="filter-input"
+           value="{{ selected_material }}" placeholder="contains…"
+           style="width: 180px;">
+  </div>
+
+  <div class="filters-group">
+    <span class="filters-label">Owner</span>
+    <select name="owner" style="min-width: 160px;">
+      <option value="">All owners</option>
       {% for u in all_owners %}
-        <option value="{{ u.id }}" {% if u.id in selected_owners %}selected{% endif %}>{{ u.name or u.email }}</option>
+        {% set sel_list = selected_owners or [] %}
+        <option value="{{ u.id }}" {% if u.id in sel_list %}selected{% endif %}>
+          {{ u.name or u.email }}
+        </option>
       {% endfor %}
     </select>
-  </label>
-  <button type="submit">Apply</button>
-  <a class="reset" href="{{ action }}"><button type="button" class="reset">Reset</button></a>
+  </div>
+
+  <div class="filters-actions">
+    <button type="submit" class="btn btn-primary">Apply</button>
+    <a href="{{ action }}" class="btn btn-secondary">Clear</a>
+  </div>
 </form>

@@ -1,62 +1,95 @@
 {#
-  Shared filter bar. Parameters:
-    action: form action URL (e.g. "/board", "/products", "/dashboard")
-    show_stage: whether to expose the status filter (board hides it — the
-                board uses columns per stage instead)
+  Reusable filter bar — Alpine-driven dropdown popovers + search input.
+  Parameters:
+    action       : form action URL (e.g. "/board", "/products")
+    show_stage   : whether to expose the Status dropdown (board hides it)
+    all_plants, all_stages, all_owners : loaded from the route
+    selected_plants, selected_stages, selected_owners, selected_material : current values
 #}
-<form class="filters" method="get" action="{{ action }}">
-  <div class="filters-group">
-    <span class="filters-label">Plant</span>
-    <div class="pill-row">
+{% from "_icons.html" import icon %}
+
+<form class="filter-bar" method="get" action="{{ action }}">
+  {# ---------- Plant ---------- #}
+  <div class="filter-pop" x-data="{ open: false, count: {{ (selected_plants or [])|length }} }"
+       :data-open="open">
+    <button type="button" class="filter-trigger" :class="count > 0 && 'has-value'"
+            @click="open = !open" @click.outside="open = false">
+      <span class="label">Plant:</span>
+      <span class="value" x-text="count === 0 ? 'All' : (count === 1 ? '1 selected' : (count + ' selected'))"></span>
+      {{ icon('chevron-down', 14, 'chevron') }}
+    </button>
+    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
       {% for pl in all_plants %}
-        <label class="pill">
+        <label class="check-item">
           <input type="checkbox" name="plant" value="{{ pl.plant_code }}"
-                 {% if pl.plant_code in selected_plants %}checked{% endif %}>
-          <span class="dot" style="background: {% if pl.plant_type == 'factory' %}#d97706{% elif pl.plant_type == 'warehouse' %}#7c3aed{% else %}#94a3b8{% endif %};"></span>
-          {{ pl.plant_code }}
+                 {% if pl.plant_code in (selected_plants or []) %}checked{% endif %}
+                 @change="count = $el.closest('.filter-pop').querySelectorAll('input:checked').length">
+          <span class="dot" style="background: {% if pl.plant_type == 'factory' %}var(--new){% elif pl.plant_type == 'warehouse' %}var(--violet){% else %}var(--muted-2){% endif %};"></span>
+          <span class="mono">{{ pl.plant_code }}</span>
+          <span class="meta">{{ pl.plant_type }}</span>
         </label>
       {% endfor %}
     </div>
   </div>
 
+  {# ---------- Status (optional) ---------- #}
   {% if show_stage %}
-  <div class="filters-group">
-    <span class="filters-label">Status</span>
-    <div class="pill-row">
+  <div class="filter-pop" x-data="{ open: false, count: {{ (selected_stages or [])|length }} }"
+       :data-open="open">
+    <button type="button" class="filter-trigger" :class="count > 0 && 'has-value'"
+            @click="open = !open" @click.outside="open = false">
+      <span class="label">Status:</span>
+      <span class="value" x-text="count === 0 ? 'All' : (count === 1 ? '1 selected' : (count + ' selected'))"></span>
+      {{ icon('chevron-down', 14, 'chevron') }}
+    </button>
+    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
       {% for s in all_stages %}
-        <label class="pill">
+        <label class="check-item">
           <input type="checkbox" name="stage" value="{{ s.code }}"
-                 {% if s.code in selected_stages %}checked{% endif %}>
+                 {% if s.code in (selected_stages or []) %}checked{% endif %}
+                 @change="count = $el.closest('.filter-pop').querySelectorAll('input:checked').length">
           <span class="dot" style="background: {{ s.color }};"></span>
-          {{ s.code }}
+          <span class="mono">{{ s.code }}</span>
+          <span class="meta">{{ s.label|truncate(28) }}</span>
         </label>
       {% endfor %}
     </div>
   </div>
   {% endif %}
 
-  <div class="filters-group">
-    <span class="filters-label">Material</span>
-    <input type="text" name="material" class="filter-input"
-           value="{{ selected_material }}" placeholder="contains…"
-           style="width: 180px;">
-  </div>
-
-  <div class="filters-group">
-    <span class="filters-label">Owner</span>
-    <select name="owner" style="min-width: 160px;">
-      <option value="">All owners</option>
+  {# ---------- Owner ---------- #}
+  <div class="filter-pop" x-data="{ open: false, count: {{ (selected_owners or [])|length }} }"
+       :data-open="open">
+    <button type="button" class="filter-trigger" :class="count > 0 && 'has-value'"
+            @click="open = !open" @click.outside="open = false">
+      <span class="label">Owner:</span>
+      <span class="value" x-text="count === 0 ? 'All' : (count === 1 ? '1 selected' : (count + ' selected'))"></span>
+      {{ icon('chevron-down', 14, 'chevron') }}
+    </button>
+    <div class="filter-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
       {% for u in all_owners %}
-        {% set sel_list = selected_owners or [] %}
-        <option value="{{ u.id }}" {% if u.id in sel_list %}selected{% endif %}>
-          {{ u.name or u.email }}
-        </option>
+        <label class="check-item">
+          <input type="checkbox" name="owner" value="{{ u.id }}"
+                 {% if u.id in (selected_owners or []) %}checked{% endif %}
+                 @change="count = $el.closest('.filter-pop').querySelectorAll('input:checked').length">
+          <span class="avatar avatar--sm">{{ (u.name or u.email)[:2]|upper }}</span>
+          <span>{{ u.name or u.email }}</span>
+        </label>
+      {% else %}
+        <div class="check-item" style="color: var(--muted-2); cursor: default;">No other users yet.</div>
       {% endfor %}
-    </select>
+    </div>
   </div>
 
-  <div class="filters-actions">
-    <button type="submit" class="btn btn-primary">Apply</button>
-    <a href="{{ action }}" class="btn btn-secondary">Clear</a>
+  {# ---------- Material search ---------- #}
+  <div class="search">
+    {{ icon('search', 14) }}
+    <input type="text" name="material" value="{{ selected_material or '' }}"
+           placeholder="Search material…">
   </div>
+
+  <button type="submit" class="btn btn-primary">Apply</button>
+  <a href="{{ action }}" class="btn btn-subtle">Clear</a>
 </form>
+
+<style>[x-cloak] { display: none !important; }</style>

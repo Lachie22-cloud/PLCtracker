@@ -12,7 +12,10 @@
 <body>
   <div class="login-screen">
     <div class="login-box">
-      <div class="brand-lg">PLCtracker</div>
+      <div class="brand-lg">
+        <span class="tile">PL</span>
+        <span class="name">PLCtracker</span>
+      </div>
       <p class="tagline">Sign in to continue.</p>
       {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
       <form method="post" action="/login">

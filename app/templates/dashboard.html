@@ -1,103 +1,91 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — PLCtracker{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Dashboard{% endblock %}
+
+{% block breadcrumb %}
+  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+  <span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Dashboard</span>
+{% endblock %}
+
+{% block header_title %}<h1>Dashboard</h1>{% endblock %}
+{% block header_subtitle %}<div class="subtitle">{{ total_products }} products across the current filters.</div>{% endblock %}
+{% block header_actions %}
+  <a href="/export.csv" class="btn btn-secondary">{{ icon('download', 14) }} Export CSV</a>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>Dashboard</h1>
-    <div class="subtitle">{{ total_products }} products across the current filters.</div>
-  </div>
-</div>
+  {% with total=total_products, mrp_mismatches=mrp_mismatch_count, family_mismatches=family_mismatch_count %}
+    {% include "_summary_chips.html" %}
+  {% endwith %}
 
-<div class="panel panel-tight">
-  {% set selected_stages = [] %}
-  {% with show_stage=False, action='/dashboard' %}{% include "_filters.html" %}{% endwith %}
-</div>
+  <div class="panel panel--tight">
+    {% set selected_stages = [] %}
+    {% with show_stage=False, action='/dashboard' %}{% include "_filters.html" %}{% endwith %}
+  </div>
 
-<div class="tile-row">
-  <div class="tile">
-    <div class="label">Total products</div>
-    <div class="value">{{ total_products }}</div>
-  </div>
-  <div class="tile {% if mrp_mismatch_count %}warn{% endif %}">
-    <div class="label">MRP mismatches</div>
-    <div class="value"><a href="/products?mismatch=mrp">{{ mrp_mismatch_count }}</a></div>
-  </div>
-  <div class="tile {% if family_mismatch_count %}warn{% endif %}">
-    <div class="label">Family mismatches</div>
-    <div class="value"><a href="/products?mismatch=family">{{ family_mismatch_count }}</a></div>
-  </div>
-</div>
-
-<div class="tile-row">
-  {% for s in all_stages %}
-    <div class="tile">
-      <div class="label">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ s.color }};"></span>
-        {{ s.code }} · {{ s.label }}
+  {# ---------- Products per stage (horizontal bars) & Aging doughnut ---------- #}
+  <div class="dash-grid">
+    <div class="panel">
+      <h2>Products per stage</h2>
+      {% set max_count = (counts.values()|list|max) if counts else 0 %}
+      <div class="h-bars" style="margin-top: 12px;">
+        {% for s in all_stages %}
+          {% set c = counts.get(s.code, 0) %}
+          {% set pct = (c / max_count * 100) if max_count else 0 %}
+          <div class="h-bar">
+            <span class="label"><span class="pip" style="background: {{ s.color }};"></span>{{ s.code }}</span>
+            <div class="bar"><div class="fill" style="width: {{ pct }}%; --fill: {{ s.color }};"></div></div>
+            <span class="count">{{ c }}</span>
+          </div>
+        {% endfor %}
       </div>
-      <div class="value">{{ counts.get(s.code, 0) }}</div>
     </div>
-  {% endfor %}
-</div>
 
-<div class="panel">
-  <h2>Products per stage</h2>
-  <canvas id="stageChart" height="100"></canvas>
-</div>
+    <div class="panel">
+      <h2>Aging — days in current stage</h2>
+      <div class="chart-box" style="margin-top: 12px;"><canvas id="agingChart"></canvas></div>
+    </div>
+  </div>
 
-<div class="panel">
-  <h2>Aging — days in current stage</h2>
-  <canvas id="agingChart" height="80"></canvas>
-</div>
+  <div class="panel">
+    <h2>Recent stage transitions</h2>
+    <table class="data-table">
+      <thead><tr><th>Product</th><th>From</th><th>To</th><th>When</th></tr></thead>
+      <tbody>
+        {% for t in transitions %}
+          <tr class="row-link" data-href="/products/{{ t.product_id }}">
+            <td><a href="/products/{{ t.product_id }}" class="mono">#{{ t.product_id }}</a></td>
+            <td>{{ t.from_stage_code or '—' }}</td>
+            <td><span class="chip">{{ t.to_stage_code }}</span></td>
+            <td>{{ t.detected_at|fmt_date }}</td>
+          </tr>
+        {% else %}
+          <tr class="empty-row"><td colspan="4">No transitions in the last 90 days.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-<div class="panel">
-  <h2>Recent stage transitions</h2>
-  <table class="data-table">
-    <thead><tr><th>Product</th><th>From</th><th>To</th><th>When</th></tr></thead>
-    <tbody>
-      {% for t in transitions %}
-        <tr>
-          <td><a href="/products/{{ t.product_id }}" class="mono">#{{ t.product_id }}</a></td>
-          <td>{{ t.from_stage_code or '—' }}</td>
-          <td><span class="chip">{{ t.to_stage_code }}</span></td>
-          <td>{{ t.detected_at|fmt_date }}</td>
-        </tr>
-      {% else %}
-        <tr class="empty-row"><td colspan="4">No transitions in the last 90 days.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<script>
-window.addEventListener('DOMContentLoaded', () => {
-  const stageLabels = {{ all_stages | map(attribute='code') | list | tojson }};
-  const stageColors = {{ all_stages | map(attribute='color') | list | tojson }};
-  const countsMap = {{ counts | tojson }};
-  const stageCounts = stageLabels.map(c => countsMap[c] || 0);
-  new Chart(document.getElementById('stageChart'), {
-    type: 'bar',
-    data: { labels: stageLabels, datasets: [{ data: stageCounts, backgroundColor: stageColors, borderRadius: 6 }] },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-        x: { grid: { display: false } }
-      }
-    }
-  });
-  const aging = {{ aging | tojson }};
-  new Chart(document.getElementById('agingChart'), {
-    type: 'bar',
-    data: { labels: Object.keys(aging), datasets: [{ data: Object.values(aging), backgroundColor: '#818cf8', borderRadius: 6 }] },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-        x: { grid: { display: false } }
-      }
-    }
-  });
-});
-</script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const aging = {{ aging | tojson }};
+      new Chart(document.getElementById('agingChart'), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(aging),
+          datasets: [{
+            data: Object.values(aging),
+            backgroundColor: ['#10b981', '#f59e0b', '#f97316', '#dc2626'],
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          cutout: '62%',
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, usePointStyle: true, font: { size: 12 } } },
+          },
+        },
+      });
+    });
+  </script>
 {% endblock %}

@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -9,27 +10,34 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.8/dist/cdn.min.js"></script>
+  <script defer src="/static/js/app.js"></script>
 </head>
 <body>
   {% if user %}
-  <header class="topbar">
-    <span class="brand">PLCtracker</span>
-    <nav>
-      <a href="/board"     class="{% if request.url.path == '/board'     %}active{% endif %}">Board</a>
-      <a href="/products"  class="{% if request.url.path == '/products'  %}active{% endif %}">Table</a>
-      <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}active{% endif %}">Dashboard</a>
-      <a href="/upload"    class="{% if request.url.path == '/upload'    %}active{% endif %}">Upload</a>
-      {% if user.role == 'admin' %}
-        <a href="/admin"   class="{% if request.url.path == '/admin'     %}active{% endif %}">Admin</a>
-      {% endif %}
-    </nav>
-    <span class="spacer"></span>
-    <span class="who">{{ user.name or user.email }}</span>
-    <form method="post" action="/logout"><button type="submit">Sign out</button></form>
-  </header>
+    <div class="app">
+      {% include "_sidebar.html" %}
+      <div class="main">
+        <header class="main__header">
+          <div class="breadcrumb">
+            <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+            {% block breadcrumb %}<span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>{{ self.title() }}</span>{% endblock %}
+          </div>
+          <div class="main__title-row">
+            <div>
+              {% block header_title %}<h1>{{ self.title() }}</h1>{% endblock %}
+              {% block header_subtitle %}{% endblock %}
+            </div>
+            <div class="main__actions">{% block header_actions %}{% endblock %}</div>
+          </div>
+        </header>
+        <div class="main__body">
+          {% block content %}{% endblock %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+    {% block unauth_content %}{% endblock %}
   {% endif %}
-  <main>
-    {% block content %}{% endblock %}
-  </main>
 </body>
 </html>

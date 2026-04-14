@@ -1,0 +1,15 @@
+{#
+  Shared summary chip row.
+  Requires: total, mrp_mismatches, family_mismatches (all ints).
+#}
+<div class="summary-row">
+  <span class="summary-chip"><span class="dot"></span><strong>{{ total }}</strong> total</span>
+  <a class="summary-chip {% if mrp_mismatches > 0 %}summary-chip--warn{% else %}summary-chip--ok{% endif %}"
+     href="/products?mismatch=mrp">
+    <span class="dot"></span><strong>{{ mrp_mismatches }}</strong> MRP {{ 'mismatch' if mrp_mismatches == 1 else 'mismatches' }}
+  </a>
+  <a class="summary-chip {% if family_mismatches > 0 %}summary-chip--warn{% else %}summary-chip--ok{% endif %}"
+     href="/products?mismatch=family">
+    <span class="dot"></span><strong>{{ family_mismatches }}</strong> family {{ 'mismatch' if family_mismatches == 1 else 'mismatches' }}
+  </a>
+</div>

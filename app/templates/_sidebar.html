@@ -1,0 +1,40 @@
+{% from "_icons.html" import icon %}
+<aside class="sidebar">
+  <div class="sidebar__brand">
+    <span class="sidebar__brand-tile">PL</span>
+    <div>
+      <div class="sidebar__brand-name">PLCtracker</div>
+      <div class="sidebar__brand-sub">Product lifecycle</div>
+    </div>
+  </div>
+
+  <div class="sidebar__label">Workspace</div>
+  <div class="sidebar__section">
+    <a href="/board"     class="nav-item {% if request.url.path == '/board'     %}active{% endif %}">{{ icon('kanban',  18) }} Board</a>
+    <a href="/products"  class="nav-item {% if request.url.path.startswith('/products') %}active{% endif %}">{{ icon('table',   18) }} Table</a>
+    <a href="/dashboard" class="nav-item {% if request.url.path == '/dashboard' %}active{% endif %}">{{ icon('chart',   18) }} Dashboard</a>
+    <a href="/upload"    class="nav-item {% if request.url.path == '/upload'    %}active{% endif %}">{{ icon('upload',  18) }} Upload</a>
+  </div>
+
+  {% if user.role == 'admin' %}
+    <div class="sidebar__label">Admin</div>
+    <div class="sidebar__section">
+      <a href="/admin" class="nav-item {% if request.url.path.startswith('/admin') %}active{% endif %}">{{ icon('settings', 18) }} Settings</a>
+    </div>
+  {% endif %}
+
+  <div class="sidebar__user">
+    <div class="user-card">
+      {% set initials = (user.name or user.email)[:2]|upper %}
+      <span class="avatar avatar--lg">{{ initials }}</span>
+      <div>
+        <div class="name">{{ user.name or user.email.split('@')[0] }}</div>
+        <div class="role">{{ user.role }}</div>
+      </div>
+    </div>
+    <form method="post" action="/logout">
+      <button type="submit" class="sidebar__signout">{{ icon('logout', 18) }} Sign out</button>
+    </form>
+  </div>
+</aside>
+<div class="sidebar-backdrop"></div>

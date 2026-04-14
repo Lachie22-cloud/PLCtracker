@@ -1,65 +1,86 @@
 {% extends "base.html" %}
-{% block title %}Board — PLCtracker{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Status Board{% endblock %}
+
+{% block breadcrumb %}
+  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+  <span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Board</span>
+{% endblock %}
+
+{% block header_title %}<h1>Status board</h1>{% endblock %}
+{% block header_subtitle %}<div class="subtitle">Every product-plant combination, grouped by lifecycle stage.</div>{% endblock %}
+{% block header_actions %}
+  <a href="/export.csv" class="btn btn-secondary">{{ icon('download', 14) }} Export CSV</a>
+  <a href="/upload" class="btn btn-primary">{{ icon('upload', 14) }} Upload</a>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>Status board</h1>
-    <div class="subtitle">Every product, grouped by lifecycle stage. Click a card to open details.</div>
+  {# Compute totals once from by_stage #}
+  {% set ns = namespace(total=0, mrp=0, fam=0) %}
+  {% for code, items in by_stage.items() %}
+    {% for p in items %}
+      {% set ns.total = ns.total + 1 %}
+      {% if p.mrp_mismatch %}{% set ns.mrp = ns.mrp + 1 %}{% endif %}
+      {% if p.family_mismatch %}{% set ns.fam = ns.fam + 1 %}{% endif %}
+    {% endfor %}
+  {% endfor %}
+
+  {% with total=ns.total, mrp_mismatches=ns.mrp, family_mismatches=ns.fam %}
+    {% include "_summary_chips.html" %}
+  {% endwith %}
+
+  <div class="panel panel--tight">
+    {% with show_stage=False, action='/board' %}{% include "_filters.html" %}{% endwith %}
   </div>
-</div>
 
-<div class="panel panel-tight">
-  {% with show_stage=False %}{% include "_filters.html" %}{% endwith %}
-</div>
-
-<div class="board">
-  {% for stage in all_stages %}
-    {% set items = by_stage.get(stage.code, []) %}
-    <div class="column">
-      <div class="column__accent" style="background: {{ stage.color }};"></div>
-      <div class="column__header">
-        <div class="column__title">
-          <span class="column__code">{{ stage.code }}</span>
-          <span class="column__count">{{ items|length }}</span>
+  <div class="board">
+    {% for stage in all_stages %}
+      {% set items = by_stage.get(stage.code, []) %}
+      <div class="column">
+        <div class="column__head">
+          <div class="column__title">
+            <span class="column__code">
+              <span class="pip" style="background: {{ stage.color }};"></span>
+              {{ stage.code }}
+            </span>
+            <span class="column__count">{{ items|length }}</span>
+          </div>
+          <div class="column__label">{{ stage.label }}</div>
         </div>
-        <div class="column__label">{{ stage.label }}</div>
-      </div>
-      <div class="column__body">
-        {% for p in items %}
-          {% set days = p.stage_since|days_since %}
-          {% set is_warn = p.mrp_mismatch or p.family_mismatch %}
-          <a href="/products/{{ p.id }}" style="color:inherit;">
-            <div class="card {% if is_warn %}card--warn{% endif %}">
-              <div class="card__top">
-                <span class="card__material">{{ p.material_no }}</span>
-                <span class="card__chips">
-                  {% if p.mrp_mismatch %}<span class="chip chip--warn" title="{{ p.mrp_mismatch_note }}">MRP</span>{% endif %}
-                  {% if p.family_mismatch %}<span class="chip chip--warn" title="{{ p.family_mismatch_note }}">FAM</span>{% endif %}
-                </span>
-              </div>
-              <div class="card__meta">
-                <span>{{ p.plant_code }}</span>
-                <span class="sep">·</span>
-                <span>{{ p.mrp_profile or '—' }}</span>
-                {% if days > 0 %}
-                  <span class="sep">·</span>
-                  <span>{{ days }}d in stage</span>
+        <div class="column__body">
+          {% for p in items %}
+            {% set days = p.stage_since|days_since %}
+            {% set is_warn = p.mrp_mismatch or p.family_mismatch %}
+            <a href="/products/{{ p.id }}" style="color:inherit;">
+              <div class="card {% if is_warn %}is-warn{% endif %}" style="--accent-color: {{ stage.color }};">
+                <div class="card__top">
+                  <span class="card__material">{{ p.material_no }}</span>
+                  <span class="card__plant">{{ p.plant_code }}</span>
+                </div>
+                <div class="card__mrp">{{ p.mrp_profile or '—' }}</div>
+                <div class="card__meta">
+                  {% if days > 0 %}{{ days }} days in stage{% else %}just arrived{% endif %}
+                </div>
+                {% if p.mrp_mismatch or p.family_mismatch %}
+                  <div class="card__chips">
+                    {% if p.mrp_mismatch %}<span class="chip chip--warn" title="{{ p.mrp_mismatch_note }}">{{ icon('alert-triangle', 10) }} MRP</span>{% endif %}
+                    {% if p.family_mismatch %}<span class="chip chip--warn" title="{{ p.family_mismatch_note }}">{{ icon('alert-triangle', 10) }} FAMILY</span>{% endif %}
+                  </div>
+                {% endif %}
+                {% if p.owner %}
+                  {% set initials = (p.owner.name or p.owner.email)[:2]|upper %}
+                  <div class="card__owner">
+                    <span class="avatar avatar--sm">{{ initials }}</span>
+                    <span>{{ p.owner.name or p.owner.email.split('@')[0] }}</span>
+                  </div>
                 {% endif %}
               </div>
-              {% if p.owner %}
-                {% set initials = (p.owner.name or p.owner.email)[:2]|upper %}
-                <div class="card__owner">
-                  <span class="avatar">{{ initials }}</span>
-                  <span>{{ p.owner.name or p.owner.email }}</span>
-                </div>
-              {% endif %}
-            </div>
-          </a>
-        {% else %}
-          <div class="column__empty">No products</div>
-        {% endfor %}
+            </a>
+          {% else %}
+            <div class="column__empty">No products</div>
+          {% endfor %}
+        </div>
       </div>
-    </div>
-  {% endfor %}
-</div>
+    {% endfor %}
+  </div>
 {% endblock %}

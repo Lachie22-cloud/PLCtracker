@@ -1,79 +1,77 @@
 {% extends "base.html" %}
-{% block title %}Upload — PLCtracker{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Upload{% endblock %}
+
+{% block breadcrumb %}
+  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+  <span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Upload</span>
+{% endblock %}
+
+{% block header_title %}<h1>Upload SAP extract</h1>{% endblock %}
+{% block header_subtitle %}<div class="subtitle">Drop a CSV or XLSX. We'll snapshot it, upsert the board, and flag anything that breaks your MRP or factory-vs-warehouse rules.</div>{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>Upload SAP extract</h1>
-    <div class="subtitle">Drop your CSV or XLSX. We'll snapshot it, upsert the live board, and flag anything that doesn't match your MRP or factory-vs-warehouse rules.</div>
+  {% if error %}<div class="alert alert-error">{{ icon('alert-triangle', 16) }} <span>{{ error }}</span></div>{% endif %}
+
+  <div class="panel">
+    <form method="post" action="/upload" enctype="multipart/form-data">
+      <label class="dropzone">
+        {{ icon('upload', 28) }}
+        <strong>Drop a CSV or XLSX file here</strong>
+        <span>or click to browse — max 25 MB</span>
+        <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
+      </label>
+      <div class="row-end" style="margin-top: 14px;">
+        <button type="submit" class="btn btn-primary">{{ icon('upload', 14) }} Upload &amp; validate</button>
+      </div>
+    </form>
+    <div class="divider"></div>
+    <h3>Accepted columns</h3>
+    <p class="text-sm text-muted" style="margin-bottom: 10px;">
+      Column order doesn't matter. Headers are matched case-insensitively and accept several aliases.
+    </p>
+    <table class="data-table">
+      <thead><tr><th>Field</th><th>Accepted headers</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">material_no</td><td>Material, MATNR, Material Number</td></tr>
+        <tr><td class="mono">plant_code</td><td>Plant, WERKS</td></tr>
+        <tr><td class="mono">stage_code</td><td>Plant-sp.matl status, MSTAE, Status</td></tr>
+        <tr><td class="mono">mrp_profile</td><td>MRP profile, MRP</td></tr>
+      </tbody>
+    </table>
   </div>
-</div>
 
-<div class="panel">
-  {% if error %}<div class="alert alert-error" style="margin-bottom: 14px;">Upload failed: {{ error }}</div>{% endif %}
-
-  <form method="post" action="/upload" enctype="multipart/form-data">
-    <label class="dropzone">
-      <div style="font-weight: 500; color: var(--text); margin-bottom: 6px;">Drop a CSV or XLSX file here</div>
-      <div class="text-sm text-muted">or click to browse — max {{ 25 }} MB</div>
-      <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
-    </label>
-    <div class="row" style="margin-top: 14px; justify-content: flex-end;">
-      <button type="submit" class="btn btn-primary">Upload &amp; validate</button>
-    </div>
-  </form>
-
-  <div class="divider"></div>
-
-  <h3>Accepted columns</h3>
-  <div class="text-sm text-muted" style="margin-bottom: 8px;">
-    Column order doesn't matter. Headers are matched case-insensitively and accept several aliases.
-  </div>
-  <table class="data-table">
-    <thead>
-      <tr><th>Field</th><th>Accepted headers</th></tr>
-    </thead>
-    <tbody>
-      <tr><td class="mono">material_no</td><td>Material, MATNR, Material Number</td></tr>
-      <tr><td class="mono">plant_code</td><td>Plant, WERKS</td></tr>
-      <tr><td class="mono">stage_code</td><td>Plant-sp.matl status, MSTAE, Status</td></tr>
-      <tr><td class="mono">mrp_profile</td><td>MRP profile, MRP</td></tr>
-    </tbody>
-  </table>
-</div>
-
-{% if summary %}
-<div class="panel">
-  <div class="row" style="justify-content: space-between;">
-    <h2 style="margin:0;">Upload summary</h2>
-    <span class="chip chip--info">Snapshot #{{ summary.snapshot_id }}</span>
-  </div>
-  <div class="tile-row" style="margin-top: 12px;">
-    <div class="tile"><div class="label">Rows</div><div class="value">{{ summary.row_count }}</div></div>
-    <div class="tile"><div class="label">Added</div><div class="value">{{ summary.added }}</div></div>
-    <div class="tile"><div class="label">Updated</div><div class="value">{{ summary.updated }}</div></div>
-    <div class="tile"><div class="label">Stage changed</div><div class="value">{{ summary.stage_changed }}</div></div>
-    <div class="tile"><div class="label">Missing from upload</div><div class="value">{{ summary.removed }}</div></div>
-    <div class="tile {% if summary.mrp_mismatches %}warn{% endif %}">
-      <div class="label">MRP mismatches</div>
-      <div class="value"><a href="/products?mismatch=mrp">{{ summary.mrp_mismatches }}</a></div>
-    </div>
-    <div class="tile {% if summary.family_mismatches %}warn{% endif %}">
-      <div class="label">Family mismatches</div>
-      <div class="value"><a href="/products?mismatch=family">{{ summary.family_mismatches }}</a></div>
-    </div>
-  </div>
-  {% if summary.unknown_plants %}
-    <div class="alert alert-info" style="margin-top: 12px;">
-      New plants auto-added (as warehouse): {{ summary.unknown_plants|join(', ') }}.
-      Reclassify in <a href="/admin">Admin</a> if any should be factories.
+  {% if summary %}
+    <div class="panel">
+      <div class="row" style="justify-content: space-between; margin-bottom: 6px;">
+        <h2 style="margin: 0;">Upload summary</h2>
+        <span class="chip chip--lg">Snapshot #{{ summary.snapshot_id }}</span>
+      </div>
+      <div class="tile-row" style="margin-top: 10px;">
+        <div class="tile"><div class="label">Rows</div><div class="value">{{ summary.row_count }}</div></div>
+        <div class="tile"><div class="label">Added</div><div class="value">{{ summary.added }}</div></div>
+        <div class="tile"><div class="label">Updated</div><div class="value">{{ summary.updated }}</div></div>
+        <div class="tile"><div class="label">Stage changed</div><div class="value">{{ summary.stage_changed }}</div></div>
+        <div class="tile"><div class="label">Missing from upload</div><div class="value">{{ summary.removed }}</div></div>
+        <div class="tile {% if summary.mrp_mismatches %}warn{% endif %}">
+          <div class="label">MRP mismatches</div>
+          <div class="value"><a href="/products?mismatch=mrp" style="color: inherit;">{{ summary.mrp_mismatches }}</a></div>
+        </div>
+        <div class="tile {% if summary.family_mismatches %}warn{% endif %}">
+          <div class="label">Family mismatches</div>
+          <div class="value"><a href="/products?mismatch=family" style="color: inherit;">{{ summary.family_mismatches }}</a></div>
+        </div>
+      </div>
+      {% if summary.unknown_plants %}
+        <div class="alert alert-info">
+          New plants auto-added (as warehouse): {{ summary.unknown_plants|join(', ') }}. Reclassify in <a href="/admin">Admin</a> if needed.
+        </div>
+      {% endif %}
+      {% if summary.unknown_stages %}
+        <div class="alert alert-info">
+          New statuses auto-added: {{ summary.unknown_stages|join(', ') }}. Rename / reorder / colour in <a href="/admin">Admin</a>.
+        </div>
+      {% endif %}
     </div>
   {% endif %}
-  {% if summary.unknown_stages %}
-    <div class="alert alert-info" style="margin-top: 12px;">
-      New statuses auto-added: {{ summary.unknown_stages|join(', ') }}.
-      Rename / reorder / colour in <a href="/admin">Admin</a>.
-    </div>
-  {% endif %}
-</div>
-{% endif %}
 {% endblock %}

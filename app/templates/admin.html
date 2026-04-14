@@ -1,189 +1,185 @@
 {% extends "base.html" %}
-{% block title %}Admin — PLCtracker{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Settings{% endblock %}
+
+{% block breadcrumb %}
+  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+  <span>Admin</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Settings</span>
+{% endblock %}
+
+{% block header_title %}<h1>Settings</h1>{% endblock %}
+{% block header_subtitle %}<div class="subtitle">Users, plants, lifecycle stages, MRP rules, upload history.</div>{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>Admin</h1>
-    <div class="subtitle">Users, plants, lifecycle stages, MRP rules, upload history.</div>
-  </div>
-</div>
-
-<div class="panel">
-  <h2>Users</h2>
-  <table class="data-table">
-    <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Active</th><th>Reset password</th><th></th></tr></thead>
-    <tbody>
-      {% for u in users %}
-        <tr>
-          <td class="mono">{{ u.email }}</td>
-          <td>{{ u.name }}</td>
-          <td><span class="chip">{{ u.role }}</span></td>
-          <td>
-            {% if u.is_active %}
-              <span class="chip chip--ok">yes</span>
-            {% else %}
-              <span class="chip chip--warn">no</span>
-            {% endif %}
-          </td>
-          <td>
-            <form method="post" action="/admin/users/{{ u.id }}/password" class="row">
-              <input type="password" name="new_password" placeholder="new password" required style="width: 160px;">
-              <button type="submit" class="btn btn-secondary btn-sm">Reset</button>
-            </form>
-          </td>
-          <td>
-            <form method="post" action="/admin/users/{{ u.id }}/deactivate">
-              <button type="submit" class="btn btn-subtle btn-sm">{{ 'Deactivate' if u.is_active else 'Activate' }}</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <div class="divider"></div>
-  <h3>Create user</h3>
-  <form method="post" action="/admin/users" class="row" style="margin-top: 8px;">
-    <input type="email" name="email" placeholder="email@company.com" required style="width: 220px;">
-    <input type="text" name="name" placeholder="Full name" style="width: 180px;">
-    <input type="password" name="password" placeholder="initial password" required style="width: 180px;">
-    <select name="role">
-      <option value="editor">editor</option>
-      <option value="admin">admin</option>
-      <option value="viewer">viewer</option>
-    </select>
-    <button type="submit" class="btn btn-primary">Create</button>
-  </form>
-</div>
-
-<div class="panel">
-  <h2>Plants</h2>
-  <div class="subtitle" style="margin-bottom: 10px;">Plant type drives the factory-vs-warehouse consistency check.</div>
-  <table class="data-table">
-    <thead><tr><th>Code</th><th>Type</th><th>Description</th><th></th></tr></thead>
-    <tbody>
-      {% for p in plants %}
-        <tr>
-          <td class="mono">{{ p.plant_code }}</td>
-          <td>
-            <form method="post" action="/admin/plants/{{ p.plant_code }}" id="plant-{{ p.plant_code }}">
-              <select name="plant_type">
-                <option value="factory" {% if p.plant_type == 'factory' %}selected{% endif %}>factory</option>
-                <option value="warehouse" {% if p.plant_type == 'warehouse' %}selected{% endif %}>warehouse</option>
-                <option value="other" {% if p.plant_type == 'other' %}selected{% endif %}>other</option>
-              </select>
-          </td>
-          <td>
-              <input type="text" name="description" value="{{ p.description }}" style="width: 100%;">
-          </td>
-          <td>
-              <button type="submit" form="plant-{{ p.plant_code }}" class="btn btn-secondary btn-sm">Save</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="panel">
-  <h2>Lifecycle stages</h2>
-  <table class="data-table">
-    <thead><tr><th>Code</th><th>Label</th><th>Family</th><th>Order</th><th>Color</th><th>Terminal</th><th></th></tr></thead>
-    <tbody>
-      {% for s in stages %}
-        <tr>
-          <td class="mono">{{ s.code }}</td>
-          <td>
-            <form method="post" action="/admin/stages/{{ s.code }}" id="stage-{{ s.code }}">
-              <input type="text" name="label" value="{{ s.label }}" style="width: 100%;">
-          </td>
-          <td><input type="text" name="family" value="{{ s.family }}" form="stage-{{ s.code }}" style="width: 100%;"></td>
-          <td><input type="number" name="display_order" value="{{ s.display_order }}" form="stage-{{ s.code }}" style="width: 60px;"></td>
-          <td>
-            <span class="row" style="gap: 6px;">
-              <span style="display:inline-block; width:14px; height:14px; border-radius: 4px; background: {{ s.color }};"></span>
-              <input type="text" name="color" value="{{ s.color }}" form="stage-{{ s.code }}" style="width: 90px;">
-            </span>
-          </td>
-          <td>
-            <input type="checkbox" name="is_terminal" value="1" form="stage-{{ s.code }}" {% if s.is_terminal %}checked{% endif %}>
-          </td>
-          <td>
-            <button type="submit" form="stage-{{ s.code }}" class="btn btn-secondary btn-sm">Save</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="panel">
-  <h2>MRP rules</h2>
-  <div class="subtitle" style="margin-bottom: 10px;">
-    Expected MRP profile for each (status, plant). Plant-specific rules win over the "All plants" default. Leave blank to remove a rule.
-  </div>
-  <div style="overflow-x: auto;">
-    <table class="matrix">
-      <thead>
-        <tr>
-          <th>Status</th>
-          <th>All plants</th>
-          {% for pl in plants %}
-            <th>
-              <div class="mono">{{ pl.plant_code }}</div>
-              <div class="text-muted" style="font-size:10px; text-transform: uppercase; letter-spacing: 0.04em;">{{ pl.plant_type }}</div>
-            </th>
-          {% endfor %}
-        </tr>
-      </thead>
+  <div class="panel">
+    <h2>Users</h2>
+    <table class="data-table" style="margin-top: 8px;">
+      <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Active</th><th>Reset password</th><th></th></tr></thead>
       <tbody>
-        {% for s in stages %}
+        {% for u in users %}
           <tr>
-            <th>
-              <span class="chip">{{ s.code }}</span>
-            </th>
+            <td class="mono">{{ u.email }}</td>
+            <td>{{ u.name }}</td>
+            <td><span class="chip">{{ u.role }}</span></td>
             <td>
-              <form method="post" action="/admin/mrp_rules">
-                <input type="hidden" name="stage_code" value="{{ s.code }}">
-                <input type="hidden" name="plant_code" value="">
-                <input type="text" name="expected_mrp_profile" value="{{ matrix.get(s.code, {}).get('*', '') }}">
-                <button type="submit" class="btn btn-subtle btn-sm">Save</button>
+              {% if u.is_active %}<span class="chip chip--ok">active</span>
+              {% else %}<span class="chip chip--warn">disabled</span>
+              {% endif %}
+            </td>
+            <td>
+              <form method="post" action="/admin/users/{{ u.id }}/password" class="row">
+                <input type="password" name="new_password" placeholder="new password" required style="width: 160px;">
+                <button type="submit" class="btn btn-secondary btn-sm">Reset</button>
               </form>
             </td>
-            {% for pl in plants %}
-              <td>
-                <form method="post" action="/admin/mrp_rules">
-                  <input type="hidden" name="stage_code" value="{{ s.code }}">
-                  <input type="hidden" name="plant_code" value="{{ pl.plant_code }}">
-                  <input type="text" name="expected_mrp_profile" value="{{ matrix.get(s.code, {}).get(pl.plant_code, '') }}">
-                  <button type="submit" class="btn btn-subtle btn-sm">Save</button>
-                </form>
-              </td>
-            {% endfor %}
+            <td>
+              <form method="post" action="/admin/users/{{ u.id }}/deactivate">
+                <button type="submit" class="btn btn-subtle btn-sm">{{ 'Deactivate' if u.is_active else 'Activate' }}</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="divider"></div>
+    <h3>Create user</h3>
+    <form method="post" action="/admin/users" class="row" style="margin-top: 8px;">
+      <input type="email" name="email" placeholder="email@company.com" required style="width: 220px;">
+      <input type="text" name="name" placeholder="Full name" style="width: 180px;">
+      <input type="password" name="password" placeholder="initial password" required style="width: 180px;">
+      <select name="role">
+        <option value="editor">editor</option>
+        <option value="admin">admin</option>
+        <option value="viewer">viewer</option>
+      </select>
+      <button type="submit" class="btn btn-primary">{{ icon('plus', 14) }} Create</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Plants</h2>
+    <p class="text-sm text-muted" style="margin-bottom: 10px;">Plant type drives the factory-vs-warehouse consistency check.</p>
+    <table class="data-table">
+      <thead><tr><th>Code</th><th>Type</th><th>Description</th><th></th></tr></thead>
+      <tbody>
+        {% for p in plants %}
+          <tr>
+            <td class="mono">{{ p.plant_code }}</td>
+            <td>
+              <form method="post" action="/admin/plants/{{ p.plant_code }}" id="plant-{{ p.plant_code }}">
+                <select name="plant_type">
+                  <option value="factory" {% if p.plant_type == 'factory' %}selected{% endif %}>factory</option>
+                  <option value="warehouse" {% if p.plant_type == 'warehouse' %}selected{% endif %}>warehouse</option>
+                  <option value="other" {% if p.plant_type == 'other' %}selected{% endif %}>other</option>
+                </select>
+            </td>
+            <td>
+                <input type="text" name="description" value="{{ p.description }}" style="width: 100%;">
+            </td>
+            <td>
+                <button type="submit" form="plant-{{ p.plant_code }}" class="btn btn-secondary btn-sm">Save</button>
+              </form>
+            </td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-</div>
 
-<div class="panel">
-  <h2>Upload history</h2>
-  <table class="data-table">
-    <thead><tr><th>When</th><th>Uploaded by</th><th>Filename</th><th>Rows</th></tr></thead>
-    <tbody>
-      {% for snap in snapshots %}
-        <tr>
-          <td class="nowrap">{{ snap.uploaded_at|fmt_date }}</td>
-          <td>{{ snap.uploader.name or snap.uploader.email }}</td>
-          <td class="mono">{{ snap.filename }}</td>
-          <td>{{ snap.row_count }}</td>
-        </tr>
-      {% else %}
-        <tr class="empty-row"><td colspan="4">No uploads yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  <div class="panel">
+    <h2>Lifecycle stages</h2>
+    <table class="data-table">
+      <thead><tr><th>Code</th><th>Label</th><th>Family</th><th>Order</th><th>Color</th><th>Terminal</th><th></th></tr></thead>
+      <tbody>
+        {% for s in stages %}
+          <tr>
+            <td class="mono">{{ s.code }}</td>
+            <td>
+              <form method="post" action="/admin/stages/{{ s.code }}" id="stage-{{ s.code }}">
+                <input type="text" name="label" value="{{ s.label }}" style="width: 100%;">
+            </td>
+            <td><input type="text" name="family" value="{{ s.family }}" form="stage-{{ s.code }}" style="width: 100%;"></td>
+            <td><input type="number" name="display_order" value="{{ s.display_order }}" form="stage-{{ s.code }}" style="width: 60px;"></td>
+            <td>
+              <span class="row" style="gap: 6px;">
+                <span style="display:inline-block; width:14px; height:14px; border-radius: 4px; background: {{ s.color }}; border: 1px solid var(--border);"></span>
+                <input type="text" name="color" value="{{ s.color }}" form="stage-{{ s.code }}" style="width: 90px;">
+              </span>
+            </td>
+            <td>
+              <input type="checkbox" name="is_terminal" value="1" form="stage-{{ s.code }}" {% if s.is_terminal %}checked{% endif %}>
+            </td>
+            <td>
+              <button type="submit" form="stage-{{ s.code }}" class="btn btn-secondary btn-sm">Save</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>MRP rules</h2>
+    <p class="text-sm text-muted" style="margin-bottom: 10px;">
+      Expected MRP profile for each (status, plant). Plant-specific rules win over the "All plants" default. Leave blank to remove a rule.
+    </p>
+    <div style="overflow-x: auto;">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>All plants</th>
+            {% for pl in plants %}
+              <th><div class="mono">{{ pl.plant_code }}</div><div class="text-muted" style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;">{{ pl.plant_type }}</div></th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in stages %}
+            <tr>
+              <th><span class="chip">{{ s.code }}</span></th>
+              <td>
+                <form method="post" action="/admin/mrp_rules">
+                  <input type="hidden" name="stage_code" value="{{ s.code }}">
+                  <input type="hidden" name="plant_code" value="">
+                  <input type="text" name="expected_mrp_profile" value="{{ matrix.get(s.code, {}).get('*', '') }}">
+                  <button type="submit" class="btn btn-subtle btn-sm">Save</button>
+                </form>
+              </td>
+              {% for pl in plants %}
+                <td>
+                  <form method="post" action="/admin/mrp_rules">
+                    <input type="hidden" name="stage_code" value="{{ s.code }}">
+                    <input type="hidden" name="plant_code" value="{{ pl.plant_code }}">
+                    <input type="text" name="expected_mrp_profile" value="{{ matrix.get(s.code, {}).get(pl.plant_code, '') }}">
+                    <button type="submit" class="btn btn-subtle btn-sm">Save</button>
+                  </form>
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Upload history</h2>
+    <table class="data-table">
+      <thead><tr><th>When</th><th>Uploaded by</th><th>Filename</th><th>Rows</th></tr></thead>
+      <tbody>
+        {% for snap in snapshots %}
+          <tr>
+            <td class="nowrap">{{ snap.uploaded_at|fmt_date }}</td>
+            <td>{{ snap.uploader.name or snap.uploader.email }}</td>
+            <td class="mono">{{ snap.filename }}</td>
+            <td>{{ snap.row_count }}</td>
+          </tr>
+        {% else %}
+          <tr class="empty-row"><td colspan="4">No uploads yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 {% endblock %}

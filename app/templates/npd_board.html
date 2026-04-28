@@ -1,58 +1,75 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}NPD Board{% endblock %}
+{% block title %}NPD board{% endblock %}
+{% block crumb_section %}NPD Pipeline{% endblock %}
+{% block crumb_page %}Board{% endblock %}
 
-{% block header_actions %}
-  <a href="/npd" class="btn btn-secondary btn-sm">{{ icon('table', 14) }} Table view</a>
+{% block page_actions %}
+  <a href="/npd" class="btn btn-secondary btn-sm">{{ icon('table', 14) }} List view</a>
+  <a href="/npd" class="btn btn-primary btn-sm">{{ icon('plus', 14) }} New request</a>
+{% endblock %}
+
+{% block header_title %}<div class="page__title">NPD board</div>{% endblock %}
+{% block header_subtitle %}
+  {% set total = 0 %}
+  {% for status_key, items in by_status.items() %}{% set total = total + items|length %}{% endfor %}
+  <div class="page__sub">{{ total }} requests across 4 columns</div>
 {% endblock %}
 
 {% block content %}
 {% set columns = [
   ('in_progress', 'In Progress', 'info'),
-  ('on_hold', 'On Hold', 'warning'),
-  ('completed', 'Completed', 'ok'),
-  ('cancelled', 'Cancelled', 'n_a'),
+  ('on_hold',     'On Hold',     'warning'),
+  ('completed',   'Completed',   'ok'),
+  ('cancelled',   'Cancelled',   'muted'),
 ] %}
 
-<div class="board">
+<div class="kanban">
   {% for status_key, status_label, dot_mod in columns %}
   <div class="kanban-col">
     <div class="kanban-col__head">
-      <span class="kanban-col__dot kanban-col__dot--{{ dot_mod }}"></span>
-      <span class="kanban-col__title">{{ status_label }}</span>
+      <div class="kanban-col__title">
+        <span class="kanban-col__dot kanban-col__dot--{{ dot_mod }}"></span>
+        {{ status_label }}
+      </div>
       <span class="kanban-col__count">{{ by_status.get(status_key, [])|length }}</span>
     </div>
     <div class="kanban-col__body">
-      {% for req in by_status.get(status_key, []) %}
+      {% set cards = by_status.get(status_key, []) %}
+      {% if cards|length == 0 %}
+        <div class="kanban-empty">No requests</div>
+      {% endif %}
+      {% for req in cards %}
       {% set total_steps = req.steps | rejectattr('status', 'equalto', 'n_a') | list | length %}
-      {% set done_steps = req.steps | selectattr('status', 'equalto', 'completed') | list | length %}
-      {% set days_open = req.created_at | days_since %}
-      <a href="/npd/{{ req.id }}" class="kanban-card">
+      {% set done_steps  = req.steps | selectattr('status', 'equalto', 'completed') | list | length %}
+      {% set next_step   = req.steps | rejectattr('status', 'equalto', 'completed') | rejectattr('status', 'equalto', 'n_a') | list | first %}
+      {% set days_open   = req.created_at | days_since %}
+      <a href="/npd/{{ req.id }}" class="kanban-card" style="text-decoration:none;">
         <div class="kanban-card__head">
-          <span class="mono" style="font-weight:600;font-size:.82rem;">{{ req.request_no }}</span>
-          <span class="text-muted text-sm">{{ days_open }}d</span>
+          <span class="req-no mono">{{ req.request_no }}</span>
+          {% for div in divisions %}{% if div.code == req.division_code %}
+            <span class="div-badge div-badge--blue" style="font-size:10px;padding:2px 6px;"><span class="div-badge__code">{{ div.code }}</span></span>
+          {% endif %}{% endfor %}
         </div>
-        {% if req.bulk_sku or req.fg_sku %}
-          <div class="mono text-sm text-muted" style="margin-bottom:.3rem;">
-            {% if req.bulk_sku %}{{ req.bulk_sku }}{% endif %}{% if req.bulk_sku and req.fg_sku %} / {% endif %}{% if req.fg_sku %}{{ req.fg_sku }}{% endif %}
-          </div>
-        {% endif %}
-        <div class="text-sm text-muted" style="margin-bottom:.4rem;">
-          {% for req_type, lbl in [('bulk_fg','Bulk+FG'),('fg_only','FG Only'),('bulk_only','Bulk Only')] %}
-            {% if req.request_type == req_type %}{{ lbl }}{% endif %}
-          {% endfor %}
+        <div class="kanban-card__skus">
+          {% if req.bulk_sku %}<span class="code mono" style="font-size:10.5px;">{{ req.bulk_sku }}</span>{% endif %}
+          {% if req.fg_sku %}<span class="code mono" style="font-size:10.5px;color:var(--text-2);">{{ req.fg_sku }}</span>{% endif %}
         </div>
-        <div class="kanban-card__foot">
+        <div style="display:flex;align-items:center;gap:8px;">
           <div class="progress-cell" style="flex:1;">
             <div class="progress-cell__bar">
               <div class="progress-cell__fill" style="width:{{ ((done_steps / total_steps * 100) if total_steps else 0) | int }}%;"></div>
             </div>
-            <span class="progress-cell__label">{{ done_steps }}/{{ total_steps }}</span>
+            <div class="progress-cell__text mono">{{ done_steps }}/{{ total_steps }}</div>
           </div>
         </div>
+        <div class="kanban-card__foot">
+          {% if next_step %}
+            <span class="step-chip" style="font-size:10.5px;">{% for sd in step_defs %}{% if sd.step_code == next_step.step_code %}{{ sd.label }}{% endif %}{% endfor %}</span>
+          {% endif %}
+          <span class="kanban-card__days" style="margin-left:auto;">{{ days_open }}d open</span>
+        </div>
       </a>
-      {% else %}
-        <div class="kanban-empty">Empty</div>
       {% endfor %}
     </div>
   </div>

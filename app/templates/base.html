@@ -21,9 +21,24 @@
         <div class="topbar">
           <button type="button" class="btn-subtle btn-icon sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 16) }}</button>
           <div class="topbar__crumbs">
-            {% block breadcrumb %}<span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <strong>{{ self.title() }}</strong>{% endblock %}
+            {% block breadcrumb %}
+              <span>{% block crumb_section %}Workspace{% endblock %}</span>
+              <span class="sep">{{ icon('chevron-right', 12) }}</span>
+              <strong>{% block crumb_page %}{{ self.title() }}{% endblock %}</strong>
+            {% endblock %}
           </div>
           <div class="topbar__right">
+            <div class="topbar__sap">
+              <span class="pulse"></span>
+              <span>SAP OData</span>
+              <span style="color:var(--muted-3);">·</span>
+              <span>last sync</span>
+              <strong class="mono">{% block sap_last_run %}—{% endblock %}</strong>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="gap:6px;">{{ icon('bell', 14) }}</button>
+            <form method="post" action="/governance/run-now" style="display:inline">
+              <button type="submit" class="btn btn-primary btn-sm">{{ icon('refresh', 14) }} Run extraction</button>
+            </form>
             {% block header_actions %}{% endblock %}
           </div>
         </div>
@@ -32,6 +47,9 @@
             <div>
               {% block header_title %}<div class="page__title">{{ self.title() }}</div>{% endblock %}
               {% block header_subtitle %}{% endblock %}
+            </div>
+            <div class="page__actions">
+              {% block page_actions %}{% endblock %}
             </div>
           </div>
           {% block content %}{% endblock %}

@@ -1,302 +1,291 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
 {% block title %}{{ npd_req.request_no }}{% endblock %}
+{% block crumb_section %}NPD Pipeline{% endblock %}
+{% block crumb_page %}Request detail{% endblock %}
 
-{% block breadcrumb %}
-  <a href="/npd">NPD Pipeline</a>
-  <span class="sep">{{ icon('chevron-right', 12) }}</span>
-  <span class="mono">{{ npd_req.request_no }}</span>
+{% block page_actions %}
+  {% for div in divisions %}{% if div.code == npd_req.division_code %}
+    <span class="div-badge div-badge--blue"><span class="div-badge__code">{{ div.code }}</span>{{ div.label }}</span>
+  {% endif %}{% endfor %}
+  {% if npd_req.status == 'in_progress' %}
+    <span class="badge badge--running"><span class="dot"></span>in progress</span>
+  {% elif npd_req.status == 'completed' %}
+    <span class="badge badge--ok"><span class="dot"></span>completed</span>
+  {% elif npd_req.status == 'on_hold' %}
+    <span class="badge badge--warning"><span class="dot"></span>on hold</span>
+  {% else %}
+    <span class="badge"><span class="dot"></span>{{ npd_req.status }}</span>
+  {% endif %}
 {% endblock %}
 
-{% block header_title %}{% endblock %}
+{% block header_title %}
+  <div>
+    <a href="/npd" class="crumb-link">{{ icon('chevron-left', 12) }} NPD requests</a>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+      <div class="page__title">{{ npd_req.request_no }}</div>
+      <span class="page__title-sub">{% for val, lbl in request_types %}{% if val == npd_req.request_type %}{{ lbl }}{% endif %}{% endfor %}</span>
+    </div>
+  </div>
+{% endblock %}
 {% block header_subtitle %}{% endblock %}
 
 {% block content %}
 {% if msg %}
-  <div class="callout callout--ok" style="margin-bottom:1rem;">{{ icon('check', 14) }} {{ msg }}</div>
+  <div class="callout callout--ok" style="margin-bottom:14px;">{{ icon('check', 14) }} {{ msg }}</div>
 {% endif %}
 
-<div class="detail-grid" style="grid-template-columns:280px 1fr 300px;">
+{% set total_steps = npd_req.steps | rejectattr('status', 'equalto', 'n_a') | list | length %}
+{% set done_steps  = npd_req.steps | selectattr('status', 'equalto', 'completed') | list | length %}
 
-  {# ======== LEFT: Request metadata ======== #}
+<div class="npd-detail-grid">
+
+  {# LEFT: Request details #}
   <div>
-    <div class="panel" x-data="{ editing: false }">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
-        <div>
-          <div class="mono" style="font-size:1.1rem;font-weight:600;">{{ npd_req.request_no }}</div>
-          <div style="margin-top:.35rem;">
-            {% if npd_req.status == 'in_progress' %}
-              <span class="badge badge--info">in progress</span>
-            {% elif npd_req.status == 'completed' %}
-              <span class="badge badge--ok">completed</span>
-            {% elif npd_req.status == 'on_hold' %}
-              <span class="badge badge--warning">on hold</span>
-            {% elif npd_req.status == 'cancelled' %}
-              <span class="badge">cancelled</span>
-            {% endif %}
-          </div>
-        </div>
-        <button type="button" @click="editing = !editing" class="btn btn-subtle btn-sm">{{ icon('settings', 14) }}</button>
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__title">Request details</span>
       </div>
-
-      {# View mode #}
-      <div x-show="!editing">
-        <dl class="kv-grid" style="font-size:.85rem;">
-          <dt>Type</dt>
-          <dd>{% for val, lbl in request_types %}{% if val == npd_req.request_type %}{{ lbl }}{% endif %}{% endfor %}</dd>
-          <dt>From</dt>
-          <dd>{% for val, lbl in request_from_choices %}{% if val == npd_req.request_from %}{{ lbl }}{% endif %}{% endfor %}</dd>
+      <div class="panel__body">
+        <dl class="kv">
+          <dt>Request no</dt><dd><span class="req-no mono">{{ npd_req.request_no }}</span></dd>
+          <dt>Type</dt><dd>{% for val, lbl in request_types %}{% if val == npd_req.request_type %}{{ lbl }}{% endif %}{% endfor %}</dd>
+          <dt>Requested by</dt><dd>{% for val, lbl in request_from_choices %}{% if val == npd_req.request_from %}{{ lbl }}{% endif %}{% endfor %}</dd>
           <dt>Division</dt>
-          <dd>{% for div in divisions %}{% if div.code == npd_req.division_code %}{{ div.label }}{% endif %}{% endfor %}</dd>
-          <dt>Bulk SKU</dt>
-          <dd class="mono">{{ npd_req.bulk_sku or '—' }}</dd>
-          <dt>FG SKU</dt>
-          <dd class="mono">{{ npd_req.fg_sku or '—' }}</dd>
-          <dt>Target date</dt>
-          <dd>{{ npd_req.target_date.strftime('%Y-%m-%d') if npd_req.target_date else '—' }}</dd>
-          <dt>Entered by</dt>
-          <dd>{{ npd_req.entered_by.name or npd_req.entered_by.email }}</dd>
-          <dt>Created</dt>
-          <dd>{{ npd_req.created_at.strftime('%Y-%m-%d') }}</dd>
-        </dl>
-        {% if npd_req.warehouse_plants and npd_req.warehouse_plants != '[]' %}
-          <div style="margin-top:.5rem;">
-            <div class="text-sm text-muted" style="margin-bottom:.25rem;">Warehouse plants</div>
-            <div style="display:flex;flex-wrap:wrap;gap:.25rem;">
+          <dd>{% for div in divisions %}{% if div.code == npd_req.division_code %}<span class="div-badge div-badge--blue"><span class="div-badge__code">{{ div.code }}</span>{{ div.label }}</span>{% endif %}{% endfor %}</dd>
+          <dt>Bulk SKU</dt><dd><span class="code mono">{{ npd_req.bulk_sku or '—' }}</span></dd>
+          <dt>FG SKU</dt><dd><span class="code mono">{{ npd_req.fg_sku or '—' }}</span></dd>
+          <dt>Warehouse</dt>
+          <dd>
+            {% if npd_req.warehouse_plants and npd_req.warehouse_plants != '[]' %}
               {% for p in npd_req.warehouse_plants | from_json %}
-                <span class="chip mono">{{ p }}</span>
+                <span class="code mono">{{ p }}</span>
               {% endfor %}
+            {% else %}
+              <span class="muted">None</span>
+            {% endif %}
+          </dd>
+          <dt>Target date</dt><dd>{{ npd_req.target_date.strftime('%Y-%m-%d') if npd_req.target_date else '—' }}</dd>
+          <dt>Created</dt><dd>{{ npd_req.created_at.strftime('%Y-%m-%d') }}</dd>
+          <dt>Entered by</dt><dd>{{ npd_req.entered_by.name or npd_req.entered_by.email }}</dd>
+          <dt>Progress</dt>
+          <dd>
+            <div class="progress-cell">
+              <div class="progress-cell__bar"><div class="progress-cell__fill" style="width:{{ ((done_steps / total_steps * 100) if total_steps else 0) | int }}%;"></div></div>
+              <div class="progress-cell__text mono">{{ done_steps }}/{{ total_steps }}</div>
             </div>
-          </div>
-        {% endif %}
+          </dd>
+        </dl>
         {% if npd_req.notes %}
-          <div style="margin-top:.5rem;" class="text-sm text-muted">{{ npd_req.notes }}</div>
+          <div style="margin-top:14px;padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:12.5px;color:var(--text-2);line-height:1.5;">{{ npd_req.notes }}</div>
         {% endif %}
-      </div>
 
-      {# Edit mode #}
-      <div x-show="editing" x-cloak>
-        <form method="post" action="/npd/{{ npd_req.id }}/edit" class="stack">
-          <label class="field">Status
-            <select name="status">
-              <option value="in_progress" {% if npd_req.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-              <option value="on_hold" {% if npd_req.status == 'on_hold' %}selected{% endif %}>On Hold</option>
-              <option value="completed" {% if npd_req.status == 'completed' %}selected{% endif %}>Completed</option>
-              <option value="cancelled" {% if npd_req.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
-            </select>
-          </label>
-          <label class="field">Request type
-            <select name="request_type">
-              {% for val, lbl in request_types %}
-                <option value="{{ val }}" {% if val == npd_req.request_type %}selected{% endif %}>{{ lbl }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label class="field">Request from
-            <select name="request_from">
-              {% for val, lbl in request_from_choices %}
-                <option value="{{ val }}" {% if val == npd_req.request_from %}selected{% endif %}>{{ lbl }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label class="field">Division
-            <select name="division_code">
-              {% for div in divisions %}
-                <option value="{{ div.code }}" {% if div.code == npd_req.division_code %}selected{% endif %}>{{ div.label }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label class="field">Bulk SKU <input type="text" name="bulk_sku" value="{{ npd_req.bulk_sku or '' }}" class="mono"></label>
-          <label class="field">FG SKU <input type="text" name="fg_sku" value="{{ npd_req.fg_sku or '' }}" class="mono"></label>
-          <label class="field">Warehouse plants
-            <textarea name="warehouse_plants" rows="2">{{ (npd_req.warehouse_plants | from_json) | join(', ') }}</textarea>
-          </label>
-          <label class="field">Target date <input type="date" name="target_date" value="{{ npd_req.target_date.strftime('%Y-%m-%d') if npd_req.target_date else '' }}"></label>
-          <label class="field">Notes <textarea name="notes" rows="2">{{ npd_req.notes }}</textarea></label>
-          <div class="row-end">
-            <button type="button" @click="editing = false" class="btn btn-subtle btn-sm">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-sm">Save</button>
-          </div>
-        </form>
+        <div style="margin-top:14px;">
+          <button type="button" class="btn btn-subtle btn-sm" x-data @click="$dispatch('open-edit-req')">{{ icon('settings', 13) }} Edit request</button>
+        </div>
       </div>
     </div>
   </div>
 
-  {# ======== CENTRE: Step tracker ======== #}
+  {# CENTRE: Step tracker #}
   <div>
     <div class="panel">
-      <div class="panel__title" style="margin-bottom:1rem;">Steps</div>
-      <div class="step-list">
+      <div class="panel__head">
+        <span class="panel__title">Step tracker</span>
+        <span class="spacer"></span>
+        <span class="panel__sub">{{ done_steps }}/{{ total_steps }} complete</span>
+      </div>
+      <div class="step-tracker">
         {% for step in npd_req.steps %}
         {% set step_def = step_defs.get(step.step_code) %}
-        {% set is_na = step.status == 'n_a' %}
-        {% set is_done = step.status == 'completed' %}
+        {% set is_na      = step.status == 'n_a' %}
+        {% set is_done    = step.status == 'completed' %}
         {% set is_blocked = step.status == 'blocked' %}
-        {% set is_inprog = step.status == 'in_progress' %}
+        {% set is_inprog  = step.status == 'in_progress' %}
         <div x-data="{ open: false }" class="step {% if is_na %}step--na{% endif %}">
-          <div class="step__rail">
-            {% if is_done %}
-              <span class="step__dot step__dot--ok">{{ icon('check', 10) }}</span>
-            {% elif is_blocked %}
-              <span class="step__dot step__dot--critical">{{ icon('x', 10) }}</span>
-            {% elif is_inprog %}
-              <span class="step__dot step__dot--info">{{ icon('arrow-right', 10) }}</span>
-            {% elif is_na %}
-              <span class="step__dot step__dot--n_a">—</span>
-            {% else %}
-              <span class="step__dot">{{ step.sort_order }}</span>
+          <div class="step__rail {% if is_done %}step__rail--ok{% elif is_blocked %}step__rail--critical{% elif is_inprog %}step__rail--info{% endif %}"></div>
+          <div class="step__dot {% if is_done %}step__dot--ok{% elif is_blocked %}step__dot--critical{% elif is_inprog %}step__dot--info{% elif is_na %}step__dot--n_a{% endif %}">
+            {% if is_done %}{{ icon('check', 10) }}
+            {% elif is_blocked %}{{ icon('x', 10) }}
+            {% elif is_na %}<span>—</span>
+            {% else %}<span style="font-size:9px;{% if not is_inprog %}color:var(--muted-2){% endif %};">{{ loop.index }}</span>
             {% endif %}
           </div>
-          <div class="step__body">
+          <div class="step__body {% if not is_na and not is_done %}is-open{% endif %}">
             <div class="step__head" style="cursor:{% if not is_na %}pointer{% else %}default{% endif %};"
                  @click="{% if not is_na %}open = !open{% endif %}">
-              <strong>{{ step_def.label if step_def else step.step_code }}</strong>
-              {% if step_def and step_def.is_blocking and not is_na %}
-                <span class="text-muted" title="Blocking step">{{ icon('alert-triangle', 10) }}</span>
-              {% endif %}
-              <span style="margin-left:auto;" class="text-sm">
-                {% if is_na %}<span class="text-muted">N/A</span>
-                {% elif is_done %}<span style="color:var(--green,#16a34a);">Done</span>
-                {% elif is_blocked %}<span style="color:var(--red,#dc2626);">Blocked</span>
-                {% elif is_inprog %}<span style="color:var(--accent);">In Progress</span>
-                {% else %}<span class="text-muted">Not started</span>
+              <div>
+                <div class="step__label">{{ step_def.label if step_def else step.step_code }}</div>
+                {% if step_def and step_def.description %}
+                  <div class="step__desc">{{ step_def.description }}</div>
                 {% endif %}
-              </span>
-              {% if not is_na %}<span class="text-muted">{{ icon('chevron-right', 12) }}</span>{% endif %}
-            </div>
-            {% if is_done and step.completed_by %}
-              <div class="text-sm text-muted">
-                Completed by {{ step.completed_by.name or step.completed_by.email }}
-                on {{ step.completed_at.strftime('%Y-%m-%d') if step.completed_at else '' }}
+                {% if is_done and step.completed_by %}
+                  <div class="step__by">{{ step.completed_by.name or step.completed_by.email }}</div>
+                {% endif %}
               </div>
-            {% endif %}
-            {% if step.notes %}
-              <div class="text-sm text-muted" style="margin-top:.15rem;">{{ step.notes }}</div>
-            {% endif %}
-            {% if step.batch_number %}
-              <div class="text-sm text-muted">Batch: <span class="mono">{{ step.batch_number }}</span></div>
-            {% endif %}
-            {% if step.scheduled_date %}
-              <div class="text-sm text-muted">Scheduled: {{ step.scheduled_date }}</div>
-            {% endif %}
+              <span class="badge badge--{% if is_done %}ok{% elif is_blocked %}critical{% elif is_inprog %}info{% elif is_na %}muted{% else %}muted{% endif %}">
+                <span class="dot"></span>
+                {% if is_na %}N/A{% elif is_done %}Done{% elif is_blocked %}Blocked{% elif is_inprog %}In Progress{% else %}Not started{% endif %}
+              </span>
+            </div>
 
-            {# Expand panel #}
-            <div x-show="open" x-cloak
-                 style="margin-top:.5rem;padding:.75rem;background:var(--panel-2,var(--panel));border:1px solid var(--border);border-radius:8px;">
-              {% if step_def and step_def.description %}
-                <p class="text-sm text-muted" style="margin:0 0 .75rem;">{{ step_def.description }}</p>
-              {% endif %}
-              <form method="post" action="/npd/{{ npd_req.id }}/step/{{ step.step_code }}" class="stack" style="gap:.5rem;">
-                <div class="row">
-                  <label class="field" style="flex:1;">
-                    Status
+            <div x-show="open" x-cloak class="step__expand">
+              <form method="post" action="/npd/{{ npd_req.id }}/step/{{ step.step_code }}" style="display:flex;flex-direction:column;gap:8px;">
+                <div class="field-grid">
+                  <div class="field" style="margin:0;">
+                    <label>Status</label>
                     <select name="status">
                       <option value="not_started" {% if step.status == 'not_started' %}selected{% endif %}>Not Started</option>
                       <option value="in_progress" {% if step.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                      <option value="completed" {% if step.status == 'completed' %}selected{% endif %}>Completed</option>
-                      <option value="blocked" {% if step.status == 'blocked' %}selected{% endif %}>Blocked</option>
+                      <option value="completed"   {% if step.status == 'completed'   %}selected{% endif %}>Completed</option>
+                      <option value="blocked"     {% if step.status == 'blocked'     %}selected{% endif %}>Blocked</option>
                     </select>
-                  </label>
+                  </div>
                   {% if step.step_code == 'batch_raised' %}
-                    <label class="field" style="flex:1;">
-                      Batch number
-                      <input type="text" name="batch_number" value="{{ step.batch_number or '' }}" class="mono" placeholder="e.g. 1000001234">
-                    </label>
+                  <div class="field" style="margin:0;">
+                    <label>Batch number</label>
+                    <input type="text" name="batch_number" value="{{ step.batch_number or '' }}" class="mono" placeholder="e.g. 1000001234">
+                  </div>
                   {% endif %}
                   {% if step.step_code == 'batch_scheduled' %}
-                    <label class="field" style="flex:1;">
-                      Scheduled date
-                      <input type="date" name="scheduled_date" value="{{ step.scheduled_date or '' }}">
-                    </label>
+                  <div class="field" style="margin:0;">
+                    <label>Scheduled date</label>
+                    <input type="date" name="scheduled_date" value="{{ step.scheduled_date or '' }}">
+                  </div>
                   {% endif %}
                 </div>
-                <label class="field">
-                  Notes
-                  <textarea name="notes" rows="2" placeholder="Optional notes…">{{ step.notes }}</textarea>
-                </label>
-                <div class="row-end">
-                  <button type="button" @click="open = false" class="btn btn-subtle btn-sm">Cancel</button>
-                  <button type="submit" class="btn btn-primary btn-sm">Save step</button>
+                <div class="field" style="margin:0;">
+                  <label>Notes</label>
+                  <textarea name="notes" rows="2" placeholder="Optional notes…">{{ step.notes or '' }}</textarea>
+                </div>
+                <div style="display:flex;gap:6px;justify-content:flex-end;">
+                  <button type="button" class="btn btn-subtle btn-xs" @click="open = false">Cancel</button>
+                  <button type="submit" class="btn btn-primary btn-xs">{{ icon('check', 12) }} Save step</button>
                 </div>
               </form>
             </div>
           </div>
         </div>
         {% else %}
-          <div class="text-muted text-sm">No steps. Check step definitions are seeded.</div>
+          <div class="muted" style="padding:14px;font-size:12px;">No steps configured.</div>
         {% endfor %}
       </div>
     </div>
   </div>
 
-  {# ======== RIGHT: Comments + Email ======== #}
-  <div>
+  {# RIGHT: Comments + Email #}
+  <div style="display:flex;flex-direction:column;gap:14px;">
     <div class="panel">
-      <div class="panel__title">Comments</div>
-      <form method="post" action="/npd/{{ npd_req.id }}/comment" class="stack" style="margin:8px 0 12px;">
-        <textarea name="body" placeholder="Add a note or update…" required></textarea>
-        <div class="row-end">
-          <button type="submit" class="btn btn-primary btn-sm">{{ icon('plus', 14) }} Post</button>
-        </div>
-      </form>
-      <div class="divider"></div>
-      <div class="activity" style="margin-top:.5rem;">
-        {% for c in npd_req.comments | reverse | list %}
-          <div class="activity__item">
-            <span class="activity__dot activity__dot--comment">{{ icon('message', 10) }}</span>
-            <div class="activity__body">
-              <div class="activity__head">
-                <strong>{{ c.user.name or c.user.email }}</strong>
-                <span class="text-muted text-sm">· {{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      <div class="panel__head">
+        <span class="panel__title">Comments</span>
+        <span class="spacer"></span>
+        <span class="panel__sub">{{ npd_req.comments|length }}</span>
+      </div>
+      <div class="panel__body--flush">
+        <div class="comments">
+          {% if npd_req.comments|length == 0 %}
+            <div style="padding:20px 14px;color:var(--muted);font-size:12px;text-align:center;">No comments yet.</div>
+          {% endif %}
+          {% for c in npd_req.comments | reverse | list %}
+          <div class="comment">
+            {% set initials = (c.user.name or c.user.email)[:2]|upper %}
+            <span class="avatar" style="width:28px;height:28px;font-size:11px;">{{ initials }}</span>
+            <div style="flex:1;">
+              <div class="comment__head">
+                <span class="comment__who">{{ c.user.name or c.user.email }}</span>
+                <span class="comment__when">{{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
               </div>
-              <div class="activity__content">{{ c.body }}</div>
+              <div class="comment__text">{{ c.body }}</div>
             </div>
           </div>
-        {% else %}
-          <div class="text-muted text-sm">No comments yet.</div>
-        {% endfor %}
+          {% endfor %}
+        </div>
+        <div class="comment-form">
+          <form method="post" action="/npd/{{ npd_req.id }}/comment" style="display:flex;flex-direction:column;gap:8px;">
+            <textarea name="body" rows="2" placeholder="Add a comment…" required></textarea>
+            <button type="submit" class="btn btn-primary btn-sm">{{ icon('send', 13) }} Post</button>
+          </form>
+        </div>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel__title">Paste email</div>
-      <p class="text-sm text-muted" style="margin:.25rem 0 .75rem;">Paste email text to auto-detect and apply step updates.</p>
-      <form method="post" action="/npd/{{ npd_req.id }}/paste-email" class="stack">
-        <textarea name="email_text" rows="5" placeholder="Paste email body here…" required></textarea>
-        <div class="row-end">
-          <button type="submit" class="btn btn-secondary btn-sm">{{ icon('upload', 14) }} Parse &amp; apply</button>
-        </div>
-      </form>
-    </div>
-
-    {% if email_events %}
-    <div class="panel">
-      <div class="panel__title">Email events</div>
-      <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem;">
-        {% for ev in email_events %}
-          <div style="padding:.5rem;background:var(--panel-2,var(--panel));border:1px solid var(--border);border-radius:6px;" class="text-sm">
-            <div style="display:flex;justify-content:space-between;margin-bottom:.25rem;">
-              <span class="text-muted">{{ ev.received_at.strftime('%Y-%m-%d %H:%M') }}</span>
-              {% if ev.applied %}
-                <span class="badge badge--ok" style="font-size:.7rem;">applied</span>
-              {% else %}
-                <span class="badge" style="font-size:.7rem;">not applied</span>
-              {% endif %}
-            </div>
-            {% if ev.matched_step_code %}
-              <div>Step: <strong>{{ ev.matched_step_code }}</strong> → {{ ev.matched_status }}</div>
-            {% endif %}
-            {% if ev.body_snippet %}
-              <div class="text-muted" style="margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ ev.body_snippet }}">
-                {{ ev.body_snippet[:100] }}
+      <div class="panel__head">
+        <span class="panel__title">Email log</span>
+        <span class="spacer"></span>
+        <span class="panel__sub">{{ email_events|length }}</span>
+      </div>
+      <div class="panel__body">
+        <form method="post" action="/npd/{{ npd_req.id }}/paste-email" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+          <textarea name="email_text" rows="3" placeholder="Paste email content to parse and match to a step…" style="width:100%;"></textarea>
+          <button type="submit" class="btn btn-secondary btn-sm">{{ icon('zap', 13) }} Parse &amp; match</button>
+        </form>
+        {% if email_events %}
+        <div class="email-list">
+          {% for ev in email_events %}
+          <div class="email-row">
+            {{ icon('send', 14) }}
+            <div style="flex:1;">
+              <div class="email-row__sub">{{ ev.body_snippet[:80] if ev.body_snippet else '(no subject)' }}</div>
+              <div class="email-row__meta">
+                {{ icon('clock', 11) }} {{ ev.received_at.strftime('%Y-%m-%d %H:%M') if ev.received_at else '—' }}
+                {% if ev.matched_step_code %}
+                  <span style="color:var(--muted-3);">·</span>
+                  <span class="step-chip">{{ ev.matched_step_code }}</span>
+                {% endif %}
               </div>
-            {% endif %}
+            </div>
           </div>
-        {% endfor %}
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
-    {% endif %}
   </div>
+</div>
 
+{# Edit request modal #}
+<div x-data="{ open: false }" @open-edit-req.window="open = true">
+  <div x-show="open" x-cloak class="modal-backdrop" @click.self="open = false">
+    <div class="modal" @click.stop>
+      <div class="modal__head">
+        <span class="modal__title">Edit request {{ npd_req.request_no }}</span>
+        <button class="btn-subtle btn-icon" style="margin-left:auto;" @click="open = false">{{ icon('x', 14) }}</button>
+      </div>
+      <form method="post" action="/npd/{{ npd_req.id }}/edit">
+        <div class="modal__body">
+          <div class="field-grid">
+            <div class="field">
+              <label>Status</label>
+              <select name="status">
+                <option value="in_progress" {% if npd_req.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                <option value="on_hold"     {% if npd_req.status == 'on_hold'     %}selected{% endif %}>On Hold</option>
+                <option value="completed"   {% if npd_req.status == 'completed'   %}selected{% endif %}>Completed</option>
+                <option value="cancelled"   {% if npd_req.status == 'cancelled'   %}selected{% endif %}>Cancelled</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Request type</label>
+              <select name="request_type">
+                {% for val, lbl in request_types %}
+                  <option value="{{ val }}" {% if val == npd_req.request_type %}selected{% endif %}>{{ lbl }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Bulk SKU</label><input type="text" name="bulk_sku" value="{{ npd_req.bulk_sku or '' }}" class="mono"></div>
+            <div class="field"><label>FG SKU</label><input type="text" name="fg_sku" value="{{ npd_req.fg_sku or '' }}" class="mono"></div>
+          </div>
+          <div class="field"><label>Target date</label><input type="date" name="target_date" value="{{ npd_req.target_date.strftime('%Y-%m-%d') if npd_req.target_date else '' }}"></div>
+          <div class="field"><label>Notes</label><textarea name="notes" rows="3">{{ npd_req.notes or '' }}</textarea></div>
+        </div>
+        <div class="modal__foot">
+          <button type="button" class="btn btn-secondary btn-sm" @click="open = false">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">{{ icon('check', 13) }} Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}

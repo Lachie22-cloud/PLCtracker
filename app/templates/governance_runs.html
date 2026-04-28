@@ -1,46 +1,102 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Extraction Runs{% endblock %}
+{% block crumb_section %}Governance{% endblock %}
+{% block crumb_page %}Extraction runs{% endblock %}
 
-{% block header_actions %}
-  <form method="post" action="/governance/run-now">
-    <button type="submit" class="btn btn-primary">Run extraction now</button>
+{% block page_actions %}
+  <form method="post" action="/governance/run-now" style="display:inline;">
+    <button type="submit" class="btn btn-primary btn-sm">{{ icon('play', 13) }} Run Now</button>
   </form>
 {% endblock %}
 
+{% block header_title %}<div class="page__title">Extraction Runs</div>{% endblock %}
+{% block header_subtitle %}<div class="page__sub">SAP OData pull history</div>{% endblock %}
+
 {% block content %}
-<div class="panel" style="padding:0;overflow:hidden;">
-  <table class="tbl">
-    <thead>
-      <tr><th>ID</th><th>Source</th><th>Status</th><th>MARA</th><th>MARC</th><th>Changes</th><th>Started</th><th>Duration</th><th>Error</th></tr>
-    </thead>
-    <tbody>
-      {% for r in runs %}
-      {% set duration = ((r.finished_at - r.started_at).total_seconds() | int) if r.finished_at else None %}
-      <tr>
-        <td class="mono">{{ r.id }}</td>
-        <td>{{ r.source }}</td>
-        <td>
-          {% if r.status == 'success' %}
-            <span class="badge badge--ok">success</span>
-          {% elif r.status == 'error' %}
-            <span class="badge badge--critical">error</span>
-          {% elif r.status == 'running' %}
-            <span class="badge badge--info">running</span>
-          {% else %}
-            <span class="badge">{{ r.status }}</span>
-          {% endif %}
-        </td>
-        <td>{{ r.mara_count }}</td>
-        <td>{{ r.marc_count }}</td>
-        <td>{{ r.change_count }}</td>
-        <td class="text-muted text-sm">{{ r.started_at.strftime('%Y-%m-%d %H:%M') if r.started_at else '' }}</td>
-        <td class="text-muted text-sm">{% if duration is not none %}{{ duration }}s{% endif %}</td>
-        <td class="text-sm" style="color:var(--red,#ef4444);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ r.error_text or '' }}">{{ r.error_text or '' }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="9" class="text-muted text-sm" style="text-align:center;padding:2.5rem;">No extraction runs yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  {% if runs %}
+  {% set last_run = runs[0] %}
+  <div class="tile-row">
+    <div class="tile">
+      <div class="tile__label">Last Run</div>
+      <div class="tile__value" style="font-size:18px;margin-top:6px;">#{{ last_run.id }}</div>
+      <div class="tile__delta">{{ last_run.started_at.strftime('%Y-%m-%d %H:%M') if last_run.started_at else '—' }}</div>
+    </div>
+    <div class="tile {% if last_run.status == 'error' %}is-critical{% else %}is-ok{% endif %}">
+      <div class="tile__label">Status</div>
+      <div class="tile__value" style="font-size:18px;margin-top:6px;">{{ 'Healthy' if last_run.status == 'success' else last_run.status }}</div>
+      <div class="tile__delta">Last run {{ last_run.status }}</div>
+    </div>
+    <div class="tile">
+      <div class="tile__label">MARA records</div>
+      <div class="tile__value" style="font-size:22px;margin-top:6px;">{{ last_run.mara_count }}</div>
+      <div class="tile__delta">last extraction</div>
+    </div>
+    <div class="tile">
+      <div class="tile__label">Changes detected</div>
+      <div class="tile__value" style="font-size:22px;margin-top:6px;">{{ last_run.change_count }}</div>
+      <div class="tile__delta">field-level diffs</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__head">
+      <span class="panel__title">Run History</span>
+      <span class="panel__sub" style="margin-left:8px;">{{ runs|length }} runs</span>
+    </div>
+    <div class="panel__body--flush">
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th class="num">MARA</th>
+              <th class="num">MARC</th>
+              <th class="num">Changes</th>
+              <th>Started</th>
+              <th class="num">Duration</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in runs %}
+            {% set duration = ((r.finished_at - r.started_at).total_seconds() | int) if r.finished_at else None %}
+            <tr class="{% if r.status == 'error' %}severity-error{% endif %}">
+              <td><span class="mono" style="font-weight:600;">#{{ r.id }}</span></td>
+              <td>{{ r.source }}</td>
+              <td>
+                {% if r.status == 'success' %}
+                  <span class="badge badge--ok"><span class="dot"></span>OK</span>
+                {% elif r.status == 'error' %}
+                  <span class="badge badge--critical"><span class="dot"></span>Error</span>
+                {% elif r.status == 'running' %}
+                  <span class="badge badge--running"><span class="dot"></span>Running</span>
+                {% else %}
+                  <span class="badge"><span class="dot"></span>{{ r.status }}</span>
+                {% endif %}
+              </td>
+              <td class="num">{{ r.mara_count if r.mara_count else '—' }}</td>
+              <td class="num">{{ r.marc_count if r.marc_count else '—' }}</td>
+              <td class="num">{{ r.change_count if r.change_count else '—' }}</td>
+              <td style="color:var(--text-2);">{{ r.started_at.strftime('%Y-%m-%d %H:%M') if r.started_at else '' }}</td>
+              <td class="num"><span class="mono" style="color:var(--muted);">{% if duration is not none %}{{ duration }}s{% else %}—{% endif %}</span></td>
+              <td>
+                {% if r.error_text %}
+                  <span style="color:var(--critical);font-size:11.5px;max-width:200px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ r.error_text }}">{{ r.error_text }}</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="empty">No extraction runs yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 {% endblock %}

@@ -17,11 +17,21 @@ from ..models import (
     Marc,
     MarcChange,
     Material,
+    Plant,
 )
 from ..services.extract import run_extraction
 from ..templating import templates
 
 router = APIRouter()
+
+
+@router.get("/overview")
+async def overview(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    return RedirectResponse(url="/governance/violations", status_code=302)
 
 
 @router.get("/governance/violations")
@@ -30,28 +40,46 @@ async def violations_list(
     field_name: Optional[str] = None,
     werks: Optional[str] = None,
     severity: Optional[str] = None,
+    q: Optional[str] = None,
     db: Session = Depends(get_db),
     user=Depends(require_admin),
 ):
-    q = (
+    query = (
         select(GovernanceViolation)
         .where(GovernanceViolation.resolved_at.is_(None))
         .order_by(GovernanceViolation.detected_at.desc())
     )
     if field_name:
-        q = q.where(GovernanceViolation.field_name == field_name.upper())
+        query = query.where(GovernanceViolation.field_name == field_name.upper())
     if werks:
-        q = q.where(GovernanceViolation.werks == werks.upper())
-    violations = list(db.scalars(q).all())
+        query = query.where(GovernanceViolation.werks == werks.upper())
+    violations = list(db.scalars(query).all())
 
     # Filter by severity (requires joining rule)
     if severity:
         violations = [v for v in violations if v.rule and v.rule.severity == severity]
 
+    # Text search
+    if q:
+        ql = q.lower()
+        violations = [
+            v for v in violations
+            if ql in (v.matnr or "").lower()
+            or ql in (v.field_name or "").lower()
+            or ql in (v.werks or "").lower()
+            or ql in (v.note or "").lower()
+        ]
+
     # Summary counts by field
     field_counts: dict[str, int] = {}
     for v in violations:
         field_counts[v.field_name] = field_counts.get(v.field_name, 0) + 1
+
+    # Dropdown options
+    all_plants = list(db.scalars(select(Plant).order_by(Plant.plant_code)).all())
+    all_field_names = sorted({v.field_name for v in db.scalars(
+        select(GovernanceViolation).where(GovernanceViolation.resolved_at.is_(None))
+    ).all() if v.field_name})
 
     return templates.TemplateResponse(
         "governance_violations.html",
@@ -63,6 +91,9 @@ async def violations_list(
             "filter_field": field_name or "",
             "filter_werks": werks or "",
             "filter_severity": severity or "",
+            "filter_q": q or "",
+            "plants": all_plants,
+            "field_names": all_field_names,
         },
     )
 
@@ -135,18 +166,30 @@ async def run_now(
 @router.get("/governance/rules")
 async def rules_list(
     request: Request,
+    field_name: Optional[str] = None,
+    severity: Optional[str] = None,
     db: Session = Depends(get_db),
     user=Depends(require_admin),
 ):
-    rules = list(
+    all_rules = list(
         db.scalars(select(GovernanceRule).order_by(GovernanceRule.field_name)).all()
     )
+    rules = all_rules
+    if field_name:
+        rules = [r for r in rules if r.field_name == field_name.upper()]
+    if severity:
+        rules = [r for r in rules if r.severity == severity]
+
+    field_names = sorted({r.field_name for r in all_rules})
     return templates.TemplateResponse(
         "governance_rules.html",
         {
             "request": request,
             "user": user,
             "rules": rules,
+            "field_names": field_names,
+            "filter_field": field_name or "",
+            "filter_sev": severity or "",
         },
     )
 

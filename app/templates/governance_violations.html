@@ -1,64 +1,95 @@
 {% extends "base.html" %}
-{% block title %}Governance Violations{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Violations{% endblock %}
+{% block crumb_section %}Governance{% endblock %}
+{% block crumb_page %}Violations{% endblock %}
+
+{% block page_actions %}
+  <a href="/governance/violations/export" class="btn btn-secondary btn-sm">{{ icon('download', 14) }} Export</a>
+{% endblock %}
+
+{% block header_title %}<div class="page__title">Violations</div>{% endblock %}
+{% block header_subtitle %}<div class="page__sub">{{ violations|length }} violations</div>{% endblock %}
+
 {% block content %}
-<div class="filter-wrap" style="margin-bottom:1rem;">
-  <form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
-    <input type="text" name="field_name" value="{{ filter_field }}" placeholder="Field (e.g. DISPR)" class="input input-sm">
-    <input type="text" name="werks" value="{{ filter_werks }}" placeholder="Plant" class="input input-sm">
-    <select name="severity" class="input input-sm">
-      <option value="">All severities</option>
-      <option value="error" {% if filter_severity == 'error' %}selected{% endif %}>Error</option>
-      <option value="warning" {% if filter_severity == 'warning' %}selected{% endif %}>Warning</option>
-      <option value="info" {% if filter_severity == 'info' %}selected{% endif %}>Info</option>
-    </select>
-    <button type="submit" class="btn btn-sm">Filter</button>
-    <a href="/governance/violations" class="btn btn-sm btn-subtle">Clear</a>
+<div class="panel" x-data="{
+  selected: null,
+  open(v) { this.selected = v; }
+}">
+  <form method="get" action="/governance/violations">
+    <div class="filter-bar">
+      <div class="search">
+        {{ icon('search', 14) }}
+        <input type="text" name="q" value="{{ filter_q or '' }}" placeholder="Search matnr, field, note…">
+      </div>
+      <select name="severity" onchange="this.form.submit()">
+        <option value="">All severities</option>
+        <option value="error"   {% if filter_severity == 'error'   %}selected{% endif %}>Critical</option>
+        <option value="warning" {% if filter_severity == 'warning' %}selected{% endif %}>Warning</option>
+        <option value="info"    {% if filter_severity == 'info'    %}selected{% endif %}>Info</option>
+      </select>
+      <select name="werks" onchange="this.form.submit()">
+        <option value="">All plants</option>
+        {% for p in plants %}
+          <option value="{{ p.plant_code }}" {% if filter_werks == p.plant_code %}selected{% endif %}>{{ p.plant_code }}{% if p.description %} · {{ p.description }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      <select name="field_name" onchange="this.form.submit()">
+        <option value="">All fields</option>
+        {% for fn in field_names %}
+          <option value="{{ fn }}" {% if filter_field == fn %}selected{% endif %}>{{ fn }}</option>
+        {% endfor %}
+      </select>
+      {% if filter_q or filter_severity or filter_werks or filter_field %}
+        <a href="/governance/violations" class="btn btn-subtle btn-xs">{{ icon('x', 12) }} Clear</a>
+      {% endif %}
+      <button type="submit" style="display:none;">Filter</button>
+    </div>
   </form>
-</div>
 
-{% if field_counts %}
-<div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1rem;">
-  {% for fn, cnt in field_counts.items() %}
-  <a href="?field_name={{ fn }}" class="badge badge--info" style="text-decoration:none;cursor:pointer;">
-    {{ fn }} <strong style="margin-left:.25rem;">{{ cnt }}</strong>
-  </a>
-  {% endfor %}
-</div>
-{% endif %}
-
-<div class="panel" style="padding:0;overflow:hidden;">
-  <table class="tbl">
-    <thead>
-      <tr>
-        <th>Material</th><th>Plant</th><th>Field</th>
-        <th>Actual</th><th>Expected</th><th>Severity</th><th>Note</th><th>Detected</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for v in violations %}
-      <tr>
-        <td><a href="/governance/material/{{ v.matnr }}/changes" class="mono">{{ v.matnr }}</a></td>
-        <td>{{ v.werks }}</td>
-        <td><strong>{{ v.field_name }}</strong></td>
-        <td class="mono">{{ v.actual_value or '—' }}</td>
-        <td class="mono">{{ v.expected_value or '—' }}</td>
-        <td>
-          {% set sev = v.rule.severity if v.rule else 'error' %}
-          {% if sev == 'error' %}
-            <span class="badge badge--critical">error</span>
-          {% elif sev == 'warning' %}
-            <span class="badge badge--warning">warning</span>
+  <div class="panel__body--flush">
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Material</th>
+            <th>Field</th>
+            <th>Plant</th>
+            <th>Actual</th>
+            <th>Expected</th>
+            <th>Detected</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in violations %}
+            {% set sev = v.rule.severity if v.rule else 'error' %}
+            <tr class="severity-{{ sev }}" style="cursor:pointer;"
+                onclick="window.location='/governance/material/{{ v.matnr }}/changes'">
+              <td>
+                {% if sev == 'error' %}
+                  <span class="badge badge--critical"><span class="dot"></span>Critical</span>
+                {% elif sev == 'warning' %}
+                  <span class="badge badge--warning"><span class="dot"></span>Warning</span>
+                {% else %}
+                  <span class="badge badge--info"><span class="dot"></span>Info</span>
+                {% endif %}
+              </td>
+              <td>
+                <div><span class="mono" style="font-weight:600;">{{ v.matnr }}</span></div>
+              </td>
+              <td><span class="code mono">{{ v.field_name }}</span></td>
+              <td><span class="code mono">{{ v.werks }}</span></td>
+              <td><span class="diff__old">{{ v.actual_value or '' }}<em style="{% if not v.actual_value %}opacity:.6{% endif %}">{% if not v.actual_value %}empty{% endif %}</em></span></td>
+              <td><span class="diff__new">{{ v.expected_value or '—' }}</span></td>
+              <td class="muted">{{ v.detected_at.strftime('%Y-%m-%d') if v.detected_at else '—' }}</td>
+            </tr>
           {% else %}
-            <span class="badge badge--info">info</span>
-          {% endif %}
-        </td>
-        <td class="text-muted text-sm" style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ v.note }}">{{ v.note }}</td>
-        <td class="text-muted text-sm">{{ v.detected_at.strftime('%Y-%m-%d') if v.detected_at else '' }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="8" class="text-muted text-sm" style="text-align:center;padding:2.5rem;">No open violations.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+            <tr><td colspan="7" class="empty">No open violations.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}

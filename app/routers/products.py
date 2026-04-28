@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import require_user
@@ -93,18 +93,20 @@ async def products_table(
     user: User = Depends(require_user),
     plant: List[str] = Query(default=[]),
     material: Optional[str] = None,
-    stage: List[str] = Query(default=[]),
+    q: Optional[str] = None,
+    stage: Optional[str] = None,
     owner: List[int] = Query(default=[]),
     mismatch: Optional[str] = None,
 ):
     ctx = _filter_context(db)
-    q = select(Product).order_by(Product.material_no, Product.plant_code)
-    q = _apply_filters(q, plants=plant, material=material, stages=stage, owners=owner)
+    total_products = db.scalar(select(func.count()).select_from(Product)) or 0
+    dbq = select(Product).order_by(Product.material_no, Product.plant_code)
+    dbq = _apply_filters(dbq, plants=plant, material=material or q, stages=[stage] if stage else [], owners=owner)
     if mismatch == "mrp":
-        q = q.where(Product.mrp_mismatch.is_(True))
+        dbq = dbq.where(Product.mrp_mismatch.is_(True))
     elif mismatch == "family":
-        q = q.where(Product.family_mismatch.is_(True))
-    products = list(db.scalars(q).all())
+        dbq = dbq.where(Product.family_mismatch.is_(True))
+    products = list(db.scalars(dbq).all())
 
     return templates.TemplateResponse(
         "products.html",
@@ -113,11 +115,15 @@ async def products_table(
             "user": user,
             **ctx,
             "products": products,
+            "total_products": total_products,
             "selected_plants": plant or [],
             "selected_material": material or "",
-            "selected_stages": stage or [],
+            "selected_stages": [stage] if stage else [],
             "selected_owners": owner or [],
             "mismatch": mismatch or "",
+            "filter_q": q or "",
+            "filter_stage": stage or "",
+            "filter_mismatch": mismatch or "",
         },
     )
 

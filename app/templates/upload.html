@@ -1,76 +1,148 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}Upload{% endblock %}
+{% block title %}Upload Lifecycle Data{% endblock %}
+{% block crumb_section %}Lifecycle board{% endblock %}
+{% block crumb_page %}Upload{% endblock %}
 
-{% block breadcrumb %}
-  <span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Upload</span>
-{% endblock %}
-
-{% block header_title %}<h1>Upload SAP extract</h1>{% endblock %}
-{% block header_subtitle %}<div class="subtitle">Drop a CSV or XLSX. We'll snapshot it, upsert the board, and flag anything that breaks your MRP or factory-vs-warehouse rules.</div>{% endblock %}
+{% block header_title %}<div class="page__title">Upload Lifecycle Data</div>{% endblock %}
+{% block header_subtitle %}<div class="page__sub">Bulk-update stage, target date, and notes via CSV or XLSX</div>{% endblock %}
 
 {% block content %}
-  {% if error %}<div class="alert alert-error">{{ icon('alert-triangle', 16) }} <span>{{ error }}</span></div>{% endif %}
+  <div class="two-pane">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel__head">
+          <span class="panel__title">Upload file</span>
+        </div>
+        <div class="panel__body" style="display:flex;flex-direction:column;gap:14px;">
+          {% if error %}
+            <div class="callout">{{ icon('alert', 15) }} <div><strong>{{ error }}</strong></div></div>
+          {% endif %}
 
-  <div class="panel">
-    <form method="post" action="/upload" enctype="multipart/form-data">
-      <label class="dropzone">
-        {{ icon('upload', 28) }}
-        <strong>Drop a CSV or XLSX file here</strong>
-        <span>or click to browse — max 25 MB</span>
-        <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
-      </label>
-      <div class="row-end" style="margin-top: 14px;">
-        <button type="submit" class="btn btn-primary">{{ icon('upload', 14) }} Upload &amp; validate</button>
+          <form method="post" action="/upload" enctype="multipart/form-data" id="upload-form">
+            <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click();">
+              {{ icon('upload', 32) }}
+              <div class="upload-zone__title">Drop a file or click to upload</div>
+              <div class="upload-zone__sub">Required columns: <span class="mono">material_no</span>, <span class="mono">plant_code</span>, <span class="mono">stage_code</span>, <span class="mono">mrp_profile</span></div>
+              <input type="file" id="file-input" name="file" accept=".csv,.xlsx,.xls" required style="display:none;"
+                     onchange="document.getElementById('upload-form').submit();">
+            </div>
+          </form>
+
+          <div class="callout callout--info">
+            {{ icon('info', 15) }}
+            <div>
+              <strong>CSV format:</strong> UTF-8 encoded, comma-separated. First row must be the header.
+              Column order doesn't matter — headers matched case-insensitively.
+            </div>
+          </div>
+        </div>
       </div>
-    </form>
-    <div class="divider"></div>
-    <h3>Accepted columns</h3>
-    <p class="text-sm text-muted" style="margin-bottom: 10px;">
-      Column order doesn't matter. Headers are matched case-insensitively and accept several aliases.
-    </p>
-    <table class="data-table">
-      <thead><tr><th>Field</th><th>Accepted headers</th></tr></thead>
-      <tbody>
-        <tr><td class="mono">material_no</td><td>Material, MATNR, Material Number</td></tr>
-        <tr><td class="mono">plant_code</td><td>Plant, WERKS</td></tr>
-        <tr><td class="mono">stage_code</td><td>Plant-sp.matl status, MSTAE, Status</td></tr>
-        <tr><td class="mono">mrp_profile</td><td>MRP profile, MRP</td></tr>
-      </tbody>
-    </table>
+
+      <div class="panel">
+        <div class="panel__head">
+          <span class="panel__title">Accepted columns</span>
+        </div>
+        <div class="panel__body--flush">
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead><tr><th>Field</th><th>Accepted headers</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">material_no</td><td>Material, MATNR, Material Number</td></tr>
+                <tr><td class="mono">plant_code</td><td>Plant, WERKS</td></tr>
+                <tr><td class="mono">stage_code</td><td>Plant-sp.matl status, MSTAE, Status</td></tr>
+                <tr><td class="mono">mrp_profile</td><td>MRP profile, MRP</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__title">Upload history</span>
+        <span class="spacer"></span>
+        <span class="panel__sub">Recent uploads</span>
+      </div>
+      {% if summary %}
+        <div class="panel__body" style="border-bottom:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div>
+              <div style="font-weight:600;font-size:13px;">Latest upload</div>
+              <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px;">Snapshot #{{ summary.snapshot_id }}</div>
+            </div>
+            <span class="badge badge--ok"><span class="dot"></span>Success</span>
+          </div>
+          <div class="tile-row" style="grid-template-columns:repeat(3,1fr);gap:8px;">
+            <div class="tile" style="padding:10px 12px;">
+              <div class="tile__label">Rows</div>
+              <div class="tile__value" style="font-size:18px;margin-top:4px;">{{ summary.row_count }}</div>
+            </div>
+            <div class="tile" style="padding:10px 12px;">
+              <div class="tile__label">Added</div>
+              <div class="tile__value" style="font-size:18px;margin-top:4px;">{{ summary.added }}</div>
+            </div>
+            <div class="tile" style="padding:10px 12px;">
+              <div class="tile__label">Updated</div>
+              <div class="tile__value" style="font-size:18px;margin-top:4px;">{{ summary.updated }}</div>
+            </div>
+            <div class="tile" style="padding:10px 12px;">
+              <div class="tile__label">Stage changed</div>
+              <div class="tile__value" style="font-size:18px;margin-top:4px;">{{ summary.stage_changed }}</div>
+            </div>
+            <div class="tile {% if summary.mrp_mismatches %}is-warning{% endif %}" style="padding:10px 12px;">
+              <div class="tile__label">MRP mismatches</div>
+              <div class="tile__value" style="font-size:18px;margin-top:4px;"><a href="/products?mismatch=mrp" style="color:inherit;">{{ summary.mrp_mismatches }}</a></div>
+            </div>
+            <div class="tile {% if summary.family_mismatches %}is-warning{% endif %}" style="padding:10px 12px;">
+              <div class="tile__label">Family mismatches</div>
+              <div class="tile__value" style="font-size:18px;margin-top:4px;"><a href="/products?mismatch=family" style="color:inherit;">{{ summary.family_mismatches }}</a></div>
+            </div>
+          </div>
+          {% if summary.unknown_plants %}
+            <div class="callout callout--info" style="margin-top:10px;">
+              {{ icon('info', 15) }}
+              <div>New plants auto-added: {{ summary.unknown_plants|join(', ') }}. <a href="/admin">Reclassify in Admin</a> if needed.</div>
+            </div>
+          {% endif %}
+          {% if summary.unknown_stages %}
+            <div class="callout callout--info" style="margin-top:10px;">
+              {{ icon('info', 15) }}
+              <div>New statuses auto-added: {{ summary.unknown_stages|join(', ') }}. <a href="/admin">Configure in Admin</a>.</div>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <div class="panel__body--flush">
+        <div class="upload-history">
+          {% if not summary %}
+            <div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:12px;">No uploads yet.</div>
+          {% endif %}
+          {# Future: list of past uploads via snapshots #}
+        </div>
+      </div>
+    </div>
   </div>
 
-  {% if summary %}
-    <div class="panel">
-      <div class="row" style="justify-content: space-between; margin-bottom: 6px;">
-        <h2 style="margin: 0;">Upload summary</h2>
-        <span class="chip chip--lg">Snapshot #{{ summary.snapshot_id }}</span>
-      </div>
-      <div class="tile-row" style="margin-top: 10px;">
-        <div class="tile"><div class="label">Rows</div><div class="value">{{ summary.row_count }}</div></div>
-        <div class="tile"><div class="label">Added</div><div class="value">{{ summary.added }}</div></div>
-        <div class="tile"><div class="label">Updated</div><div class="value">{{ summary.updated }}</div></div>
-        <div class="tile"><div class="label">Stage changed</div><div class="value">{{ summary.stage_changed }}</div></div>
-        <div class="tile"><div class="label">Missing from upload</div><div class="value">{{ summary.removed }}</div></div>
-        <div class="tile {% if summary.mrp_mismatches %}warn{% endif %}">
-          <div class="label">MRP mismatches</div>
-          <div class="value"><a href="/products?mismatch=mrp" style="color: inherit;">{{ summary.mrp_mismatches }}</a></div>
-        </div>
-        <div class="tile {% if summary.family_mismatches %}warn{% endif %}">
-          <div class="label">Family mismatches</div>
-          <div class="value"><a href="/products?mismatch=family" style="color: inherit;">{{ summary.family_mismatches }}</a></div>
-        </div>
-      </div>
-      {% if summary.unknown_plants %}
-        <div class="alert alert-info">
-          New plants auto-added (as warehouse): {{ summary.unknown_plants|join(', ') }}. Reclassify in <a href="/admin">Admin</a> if needed.
-        </div>
-      {% endif %}
-      {% if summary.unknown_stages %}
-        <div class="alert alert-info">
-          New statuses auto-added: {{ summary.unknown_stages|join(', ') }}. Rename / reorder / colour in <a href="/admin">Admin</a>.
-        </div>
-      {% endif %}
-    </div>
-  {% endif %}
+  <script>
+    const zone = document.getElementById('upload-zone');
+    if (zone) {
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('is-drag'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('is-drag'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('is-drag');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          const input = document.getElementById('file-input');
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          input.files = dt.files;
+          document.getElementById('upload-form').submit();
+        }
+      });
+    }
+  </script>
 {% endblock %}

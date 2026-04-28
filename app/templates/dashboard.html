@@ -1,62 +1,109 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Lifecycle Dashboard{% endblock %}
+{% block crumb_section %}Lifecycle board{% endblock %}
+{% block crumb_page %}Dashboard{% endblock %}
 
-{% block header_subtitle %}<div class="page__sub text-muted">{{ total_products }} products across the current filters.</div>{% endblock %}
-{% block header_actions %}
-  <a href="/export.csv" class="btn btn-secondary">{{ icon('download', 14) }} Export CSV</a>
+{% block page_actions %}
+  <a href="/board" class="btn btn-secondary btn-sm">{{ icon('kanban', 14) }} Board</a>
+  <a href="/products" class="btn btn-secondary btn-sm">{{ icon('table', 14) }} Table</a>
+  <a href="/upload" class="btn btn-primary btn-sm">{{ icon('upload', 14) }} Upload</a>
 {% endblock %}
 
-{% block content %}
-  {% with total=total_products, mrp_mismatches=mrp_mismatch_count, family_mismatches=family_mismatch_count %}
-    {% include "_summary_chips.html" %}
-  {% endwith %}
+{% block header_title %}<div class="page__title">Lifecycle Dashboard</div>{% endblock %}
+{% block header_subtitle %}<div class="page__sub">{{ total_products }} products across the current filters.</div>{% endblock %}
 
-  <div class="panel panel--tight">
-    {% set selected_stages = [] %}
-    {% with show_stage=False, action='/dashboard' %}{% include "_filters.html" %}{% endwith %}
+{% block content %}
+  <div class="tile-row">
+    <div class="tile">
+      <div class="tile__label">{{ icon('package', 13) }} Tracked SKUs</div>
+      <div class="tile__value">{{ total_products }}</div>
+      <div class="tile__delta">{{ icon('database', 12) }} products in system</div>
+    </div>
+
+    {% set phasing_out = products_per_stage.get('O1', 0) + products_per_stage.get('O2', 0) if products_per_stage is defined else 0 %}
+    <div class="tile {% if phasing_out > 0 %}is-warning{% endif %}">
+      <div class="tile__label">{{ icon('alert-triangle', 13) }} Phasing out</div>
+      <div class="tile__value">{{ phasing_out }}</div>
+      <div class="tile__delta">{{ icon('info', 12) }} O1 + O2 stages</div>
+    </div>
+
+    <div class="tile {% if mrp_mismatch_count > 0 %}is-critical{% endif %}">
+      <div class="tile__label">{{ icon('alert', 13) }} MRP mismatches</div>
+      <div class="tile__value">{{ mrp_mismatch_count }}</div>
+      <div class="tile__delta"><a href="/products?mismatch=mrp" style="color:inherit;">View products</a></div>
+    </div>
+
+    <div class="tile {% if family_mismatch_count > 0 %}is-warning{% endif %}">
+      <div class="tile__label">{{ icon('shield', 13) }} Family mismatches</div>
+      <div class="tile__value">{{ family_mismatch_count }}</div>
+      <div class="tile__delta"><a href="/products?mismatch=family" style="color:inherit;">View products</a></div>
+    </div>
   </div>
 
-  <div class="dash-grid">
+  <div class="two-pane">
     <div class="panel">
-      <div class="panel__title">Products per stage</div>
-      {% set max_count = (counts.values()|list|max) if counts else 0 %}
-      <div class="h-bars" style="margin-top:12px;">
-        {% for s in all_stages %}
-          {% set c = counts.get(s.code, 0) %}
-          {% set pct = (c / max_count * 100) if max_count else 0 %}
-          <div class="h-bar">
-            <span class="label"><span class="pip" style="background:{{ s.color }};"></span>{{ s.code }}</span>
-            <div class="bar"><div class="fill" style="width:{{ pct }}%;--fill:{{ s.color }};"></div></div>
-            <span class="count">{{ c }}</span>
-          </div>
-        {% endfor %}
+      <div class="panel__head">
+        <span class="panel__title">Stage distribution</span>
+        <span class="spacer"></span>
+        <a href="/board" class="btn btn-subtle btn-xs">Open board {{ icon('arrow-right', 12) }}</a>
+      </div>
+      <div class="panel__body">
+        {% set max_count = (counts.values()|list|max) if counts else 1 %}
+        <div class="lc-stage-bars">
+          {% for s in all_stages %}
+            {% set c = counts.get(s.code, 0) %}
+            {% set pct = (c / max_count * 100) if max_count else 0 %}
+            <div class="lc-stage-bar">
+              <div class="lc-stage-bar__label">
+                <span class="stage-pill" style="background:{{ s.color }}22;color:{{ s.color }};border:1px solid {{ s.color }}44;">{{ s.code }}</span>
+                <span>{{ s.label }}</span>
+              </div>
+              <div class="lc-stage-bar__track">
+                <div class="lc-stage-bar__fill" style="width:{{ pct }}%;background:{{ s.color }};"></div>
+              </div>
+              <div class="lc-stage-bar__count mono">{{ c }}</div>
+            </div>
+          {% endfor %}
+        </div>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel__title">Aging — days in current stage</div>
-      <div class="chart-box" style="margin-top:12px;"><canvas id="agingChart"></canvas></div>
+      <div class="panel__head">
+        <span class="panel__title">Aging — days in current stage</span>
+      </div>
+      <div class="panel__body">
+        <div style="max-width:320px;margin:0 auto;"><canvas id="agingChart"></canvas></div>
+      </div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel__title">Recent stage transitions</div>
-    <table class="tbl" style="margin-top:.75rem;">
-      <thead><tr><th>Product</th><th>From</th><th>To</th><th>When</th></tr></thead>
-      <tbody>
-        {% for t in transitions %}
-          <tr class="row-link" data-href="/products/{{ t.product_id }}">
-            <td><a href="/products/{{ t.product_id }}" class="mono">#{{ t.product_id }}</a></td>
-            <td>{{ t.from_stage_code or '—' }}</td>
-            <td><span class="chip">{{ t.to_stage_code }}</span></td>
-            <td>{{ t.detected_at|fmt_date }}</td>
-          </tr>
-        {% else %}
-          <tr class="empty-row"><td colspan="4">No transitions in the last 90 days.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="panel__head">
+      <span class="panel__title">Recent stage transitions</span>
+      <span class="spacer"></span>
+      <a href="/products" class="btn btn-subtle btn-xs">View all {{ icon('arrow-right', 12) }}</a>
+    </div>
+    <div class="panel__body--flush">
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>Product</th><th>From</th><th>To</th><th>When</th></tr></thead>
+          <tbody>
+            {% for t in transitions %}
+              <tr class="row-link" data-href="/products/{{ t.product_id }}">
+                <td><a href="/products/{{ t.product_id }}" class="mono" style="font-weight:600;">#{{ t.product_id }}</a></td>
+                <td><span class="muted">{{ t.from_stage_code or '—' }}</span></td>
+                <td><span class="badge badge--info">{{ t.to_stage_code }}</span></td>
+                <td class="muted">{{ t.detected_at|fmt_date }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="empty">No transitions in the last 90 days.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -78,13 +125,7 @@
           plugins: {
             legend: {
               position: 'bottom',
-              labels: {
-                boxWidth: 10,
-                padding: 12,
-                usePointStyle: true,
-                font: { size: 12 },
-                color: 'rgba(255,255,255,0.6)',
-              },
+              labels: { boxWidth: 10, padding: 12, usePointStyle: true, font: { size: 12 }, color: 'rgba(255,255,255,0.7)' },
             },
           },
         },

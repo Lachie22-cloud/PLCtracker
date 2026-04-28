@@ -1,88 +1,70 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}Status Board{% endblock %}
+{% block title %}Lifecycle Board{% endblock %}
+{% block crumb_section %}Lifecycle board{% endblock %}
+{% block crumb_page %}Board{% endblock %}
 
-{% block breadcrumb %}
-  <span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Board</span>
+{% block page_actions %}
+  <a href="/products" class="btn btn-secondary btn-sm">{{ icon('table', 14) }} Table view</a>
+  <a href="/upload" class="btn btn-primary btn-sm">{{ icon('upload', 14) }} Upload</a>
 {% endblock %}
 
-{% block header_title %}<h1>Status board</h1>{% endblock %}
-{% block header_subtitle %}<div class="subtitle">Every product-plant combination, grouped by lifecycle stage.</div>{% endblock %}
-{% block header_actions %}
-  <a href="/export.csv" class="btn btn-secondary">{{ icon('download', 14) }} Export CSV</a>
-  <a href="/upload" class="btn btn-primary">{{ icon('upload', 14) }} Upload</a>
+{% block header_title %}<div class="page__title">Lifecycle Board</div>{% endblock %}
+{% block header_subtitle %}
+  {% set ns = namespace(total=0) %}
+  {% for code, items in by_stage.items() %}{% set ns.total = ns.total + items|length %}{% endfor %}
+  <div class="page__sub">{{ ns.total }} SKUs across {{ all_stages|length }} stages</div>
 {% endblock %}
 
 {% block content %}
-  {# Compute totals once from by_stage #}
-  {% set ns = namespace(total=0, mrp=0, fam=0) %}
-  {% for code, items in by_stage.items() %}
-    {% for p in items %}
-      {% set ns.total = ns.total + 1 %}
-      {% if p.mrp_mismatch %}{% set ns.mrp = ns.mrp + 1 %}{% endif %}
-      {% if p.family_mismatch %}{% set ns.fam = ns.fam + 1 %}{% endif %}
-    {% endfor %}
-  {% endfor %}
-
-  {% with total=ns.total, mrp_mismatches=ns.mrp, family_mismatches=ns.fam %}
-    {% include "_summary_chips.html" %}
-  {% endwith %}
-
-  <div class="panel panel--tight">
-    {% with show_stage=False, action='/board' %}{% include "_filters.html" %}{% endwith %}
-  </div>
-
-  <div class="board">
+  <div class="lc-board">
     {% for stage in all_stages %}
       {% set items = by_stage.get(stage.code, []) %}
-      <div class="column">
-        <div class="column__head">
-          <div class="column__title">
-            <span class="column__code">
-              <span class="pip" style="background: {{ stage.color }};"></span>
-              {{ stage.code }}
-            </span>
-            <span class="column__count">{{ items|length }}</span>
-          </div>
-          <div class="column__label">{{ stage.label }}</div>
+      <div class="lc-col">
+        <div class="lc-col__head">
+          <span class="stage-pill" style="background:{{ stage.color }}22;color:{{ stage.color }};border:1px solid {{ stage.color }}44;">{{ stage.code }}</span>
+          <span class="lc-col__title">{{ stage.label }}</span>
+          <span class="lc-col__count">{{ items|length }}</span>
         </div>
-        <div class="column__body">
+        {% if stage.description %}
+          <div class="lc-col__sub">{{ stage.description }}</div>
+        {% endif %}
+        <div class="lc-col__body">
+          {% if items|length == 0 %}
+            <div class="kanban-empty">—</div>
+          {% endif %}
           {% for p in items %}
             {% set days = p.stage_since|days_since %}
             {% set overrun = stage.expected_days and days > stage.expected_days %}
-            {% set is_warn = p.mrp_mismatch or p.family_mismatch or overrun %}
-            <a href="/products/{{ p.id }}" style="color:inherit;">
-              <div class="card {% if is_warn %}is-warn{% endif %}" style="--accent-color: {{ stage.color }};">
-                <div class="card__top">
-                  <span class="card__material">{{ p.material_no }}</span>
-                  <span class="card__plant">{{ p.plant_code }}</span>
+            {% set has_viol = p.mrp_mismatch or p.family_mismatch or overrun %}
+            <a href="/products/{{ p.id }}" style="text-decoration:none;color:inherit;">
+              <div class="lc-card {% if has_viol %}has-viol{% endif %}">
+                <div class="lc-card__head">
+                  <span class="mono lc-card__matnr">{{ p.material_no }}</span>
+                  <span class="stage-pill" style="background:{{ stage.color }}22;color:{{ stage.color }};border:1px solid {{ stage.color }}44;font-size:10px;padding:1px 6px;">{{ p.stage_code }}</span>
                 </div>
-                <div class="card__mrp">{{ p.mrp_profile or '—' }}</div>
-                <div class="card__meta">
-                  {% if days > 0 %}{{ days }}d in stage{% else %}just arrived{% endif %}
-                  {% if stage.expected_days %} · exp {{ stage.expected_days }}d{% endif %}
+                <div class="lc-card__meta">
+                  <span class="badge"><span class="dot"></span>{{ p.plant_code }}</span>
+                  {% if p.mrp_profile %}
+                    <span class="badge"><span class="dot"></span>{{ p.mrp_profile }}</span>
+                  {% endif %}
                 </div>
-                {% if p.mrp_mismatch or p.family_mismatch or overrun or p.tags %}
-                  <div class="card__chips">
-                    {% if overrun %}<span class="chip chip--warn" title="In {{ p.stage_code }} for {{ days }} days, expected {{ stage.expected_days }}">{{ icon('clock', 10) }} overrun</span>{% endif %}
-                    {% if p.mrp_mismatch %}<span class="chip chip--warn" title="{{ p.mrp_mismatch_note }}">{{ icon('alert-triangle', 10) }} MRP</span>{% endif %}
-                    {% if p.family_mismatch %}<span class="chip chip--warn" title="{{ p.family_mismatch_note }}">{{ icon('alert-triangle', 10) }} FAMILY</span>{% endif %}
-                    {% for t in p.tags %}
-                      <span class="chip" style="background: {{ t.color }}1a; color: {{ t.color }}; border-color: {{ t.color }};">{{ t.label }}</span>
-                    {% endfor %}
+                <div class="lc-card__foot">
+                  <div class="health-bar" title="{{ days }}d in stage">
+                    {% if stage.expected_days %}
+                      {% set health_pct = [100 - ((days / stage.expected_days) * 100), 0]|max %}
+                      <div class="health-bar__fill" style="width:{{ [health_pct, 100]|min }}%;background:{% if health_pct > 60 %}var(--ok){% elif health_pct > 30 %}var(--warning){% else %}var(--critical){% endif %};"></div>
+                    {% else %}
+                      <div class="health-bar__fill" style="width:60%;background:var(--ok);"></div>
+                    {% endif %}
                   </div>
-                {% endif %}
-                {% if p.owner %}
-                  {% set initials = (p.owner.name or p.owner.email)[:2]|upper %}
-                  <div class="card__owner">
-                    <span class="avatar avatar--sm">{{ initials }}</span>
-                    <span>{{ p.owner.name or p.owner.email.split('@')[0] }}</span>
-                  </div>
-                {% endif %}
+                  <span class="lc-card__days mono">{{ days }}d</span>
+                  {% if has_viol %}
+                    <span class="badge badge--critical lc-card__viol">{{ icon('alert', 9) }}</span>
+                  {% endif %}
+                </div>
               </div>
             </a>
-          {% else %}
-            <div class="column__empty">No products</div>
           {% endfor %}
         </div>
       </div>

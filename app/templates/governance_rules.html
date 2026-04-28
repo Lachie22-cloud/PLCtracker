@@ -1,79 +1,179 @@
 {% extends "base.html" %}
-{% block title %}Governance Rules{% endblock %}
-{% block content %}
+{% from "_icons.html" import icon %}
+{% block title %}Validation Rules{% endblock %}
+{% block crumb_section %}Governance{% endblock %}
+{% block crumb_page %}Rules{% endblock %}
 
-<div class="panel" style="margin-bottom:1.25rem;">
-  <div style="font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.75rem;">Add rule</div>
-  <form method="post" action="/governance/rules" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;">
-    <div style="display:flex;flex-direction:column;gap:.25rem;">
-      <label class="text-sm text-muted">Field *</label>
-      <input type="text" name="field_name" placeholder="e.g. DISMM" required class="input input-sm" style="width:100px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:.25rem;">
-      <label class="text-sm text-muted">MTART</label>
-      <input type="text" name="scope_mtart" placeholder="blank=all" class="input input-sm" style="width:90px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:.25rem;">
-      <label class="text-sm text-muted">Plant</label>
-      <input type="text" name="scope_plant_code" placeholder="blank=all" class="input input-sm" style="width:90px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:.25rem;">
-      <label class="text-sm text-muted">Stage</label>
-      <input type="text" name="scope_stage_code" placeholder="blank=all" class="input input-sm" style="width:90px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:.25rem;">
-      <label class="text-sm text-muted">Expected value</label>
-      <input type="text" name="expected_value" placeholder="exact match" class="input input-sm" style="width:120px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:.25rem;">
-      <label class="text-sm text-muted">Allowed values (CSV)</label>
-      <input type="text" name="allowed_values" placeholder="e.g. NOPL,OBSO" class="input input-sm" style="width:140px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:.25rem;">
-      <label class="text-sm text-muted">Severity</label>
-      <select name="severity" class="input input-sm" style="width:100px;">
-        <option value="error">error</option>
-        <option value="warning">warning</option>
-        <option value="info">info</option>
+{% block page_actions %}
+  <button type="button" class="btn btn-primary btn-sm" x-data @click="$dispatch('open-new-rule')">
+    {{ icon('plus', 13) }} New Rule
+  </button>
+{% endblock %}
+
+{% block header_title %}<div class="page__title">Validation Rules</div>{% endblock %}
+{% block header_subtitle %}<div class="page__sub">{{ rules|length }} rules</div>{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <form method="get" action="/governance/rules">
+    <div class="filter-bar">
+      <select name="field_name" onchange="this.form.submit()">
+        <option value="">All fields</option>
+        {% for fn in field_names %}
+          <option value="{{ fn }}" {% if filter_field == fn %}selected{% endif %}>{{ fn }}</option>
+        {% endfor %}
       </select>
+      <select name="severity" onchange="this.form.submit()">
+        <option value="">All severities</option>
+        <option value="error"   {% if filter_sev == 'error'   %}selected{% endif %}>Error</option>
+        <option value="warning" {% if filter_sev == 'warning' %}selected{% endif %}>Warning</option>
+        <option value="info"    {% if filter_sev == 'info'    %}selected{% endif %}>Info</option>
+      </select>
+      {% if filter_field or filter_sev %}
+        <a href="/governance/rules" class="btn btn-subtle btn-xs">{{ icon('x', 12) }} Clear</a>
+      {% endif %}
+      <span style="margin-left:auto;font-size:11.5px;color:var(--muted);">{{ rules|length }} rules</span>
+      <button type="submit" style="display:none;">Filter</button>
     </div>
-    <button type="submit" class="btn btn-primary btn-sm">Add rule</button>
   </form>
+
+  <div class="panel__body--flush">
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Field</th>
+            <th>Severity</th>
+            <th>Pattern</th>
+            <th>Expected</th>
+            <th>Allowed</th>
+            <th>Description</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rules %}
+          <tr class="severity-{{ r.severity }}" style="cursor:pointer;"
+              x-data @click="$dispatch('edit-rule', {{ r | tojson }})">
+            <td><span class="mono" style="color:var(--muted);font-size:11px;">#{{ r.id }}</span></td>
+            <td><span class="code mono">{{ r.field_name }}</span></td>
+            <td>
+              {% if r.severity == 'error' %}
+                <span class="badge badge--critical"><span class="dot"></span>Critical</span>
+              {% elif r.severity == 'warning' %}
+                <span class="badge badge--warning"><span class="dot"></span>Warning</span>
+              {% else %}
+                <span class="badge badge--info"><span class="dot"></span>Info</span>
+              {% endif %}
+            </td>
+            <td>
+              <span style="display:inline-flex;gap:4px;flex-wrap:wrap;">
+                {% for k, v in [('mtart', r.scope_mtart or '*'), ('werks', r.scope_plant_code or '*'), ('stage', r.scope_stage_code or '*')] %}
+                  <span class="mono" style="font-size:11px;{% if v != '*' %}background:var(--panel-2);{% endif %}border:1px solid var(--border);padding:0 6px;border-radius:4px;color:{% if v == '*' %}var(--muted-2){% else %}var(--text){% endif %};">{{ k }}={{ v }}</span>
+                {% endfor %}
+              </span>
+            </td>
+            <td><span class="mono" style="font-size:11.5px;">{{ r.expected_value or '—' }}</span></td>
+            <td><span class="mono" style="font-size:11.5px;">{{ r.allowed_values or '—' }}</span></td>
+            <td><span class="cell-truncate" style="max-width:280px;color:var(--text-2);font-size:12px;">{{ r.description or '—' }}</span></td>
+            <td>
+              <button type="button" class="btn btn-subtle btn-icon btn-xs" onclick="event.stopPropagation();"
+                      x-data @click.stop="$dispatch('edit-rule', {{ r | tojson }})">
+                {{ icon('edit', 13) }}
+              </button>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="empty">No governance rules configured.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
-<div class="panel" style="padding:0;overflow:hidden;">
-  <table class="tbl">
-    <thead>
-      <tr><th>Field</th><th>MTART</th><th>Plant</th><th>Stage</th><th>Expected</th><th>Allowed values</th><th>Severity</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for r in rules %}
-      <tr>
-        <td><strong>{{ r.field_name }}</strong></td>
-        <td>{{ r.scope_mtart or '—' }}</td>
-        <td>{{ r.scope_plant_code or '—' }}</td>
-        <td>{{ r.scope_stage_code or '—' }}</td>
-        <td class="mono">{{ r.expected_value or '—' }}</td>
-        <td class="mono">{{ r.allowed_values or '—' }}</td>
-        <td>
-          {% if r.severity == 'error' %}
-            <span class="badge badge--critical">error</span>
-          {% elif r.severity == 'warning' %}
-            <span class="badge badge--warning">warning</span>
-          {% else %}
-            <span class="badge badge--info">info</span>
-          {% endif %}
-        </td>
-        <td>
-          <form method="post" action="/governance/rules/{{ r.id }}/delete" style="display:inline">
-            <button type="submit" class="btn btn-subtle btn-sm" style="color:var(--red,#ef4444);" onclick="return confirm('Delete this rule?')">Delete</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="8" class="text-muted text-sm" style="text-align:center;padding:2.5rem;">No governance rules configured.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{# New / Edit Rule Modal #}
+<div x-data="{
+  open: false,
+  rule: { id: null, field_name: '', severity: 'error', scope_mtart: '', scope_plant_code: '', scope_stage_code: '', expected_value: '', allowed_values: '', description: '' },
+  isNew: true
+}"
+@open-new-rule.window="open = true; isNew = true; rule = { id: null, field_name: '', severity: 'error', scope_mtart: '', scope_plant_code: '', scope_stage_code: '', expected_value: '', allowed_values: '', description: '' }"
+@edit-rule.window="open = true; isNew = false; rule = $event.detail">
+  <div x-show="open" x-cloak class="modal-backdrop" @click.self="open = false">
+    <div class="modal" @click.stop>
+      <div class="modal__head">
+        {{ icon('shield', 16) }}
+        <span class="modal__title" x-text="isNew ? 'New Rule' : 'Edit Rule #' + rule.id"></span>
+        <button class="btn-subtle btn-icon" style="margin-left:auto;" @click="open = false">{{ icon('x', 14) }}</button>
+      </div>
+
+      <form :method="isNew ? 'post' : 'post'" :action="isNew ? '/governance/rules' : '/governance/rules/' + rule.id + '/edit'">
+        <div class="modal__body">
+          <div class="field-grid">
+            <div class="field">
+              <label>Field *</label>
+              <input type="text" name="field_name" x-model="rule.field_name" placeholder="e.g. DISMM" required>
+            </div>
+            <div class="field">
+              <label>Severity</label>
+              <select name="severity" x-model="rule.severity">
+                <option value="error">Error (Critical)</option>
+                <option value="warning">Warning</option>
+                <option value="info">Info</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Scope</div>
+          <div class="field-grid field-grid--3">
+            <div class="field">
+              <label>Mtart</label>
+              <input type="text" name="scope_mtart" x-model="rule.scope_mtart" placeholder="blank = any">
+            </div>
+            <div class="field">
+              <label>Plant</label>
+              <input type="text" name="scope_plant_code" x-model="rule.scope_plant_code" placeholder="blank = any">
+            </div>
+            <div class="field">
+              <label>Stage</label>
+              <input type="text" name="scope_stage_code" x-model="rule.scope_stage_code" placeholder="blank = any">
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label>Expected value</label>
+              <input type="text" name="expected_value" x-model="rule.expected_value" placeholder="e.g. NOPL">
+              <span class="hint">Exact match — leave blank for no constraint</span>
+            </div>
+            <div class="field">
+              <label>Allowed values</label>
+              <input type="text" name="allowed_values" x-model="rule.allowed_values" placeholder="e.g. P10,P12">
+              <span class="hint">Comma-separated list</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Description</label>
+            <textarea name="description" rows="3" x-model="rule.description" placeholder="Describe what this rule enforces…"></textarea>
+          </div>
+        </div>
+
+        <div class="modal__foot">
+          <template x-if="!isNew">
+            <a :href="'/governance/rules/' + rule.id + '/delete'" class="btn btn-subtle btn-sm"
+               style="color:var(--critical);margin-right:auto;"
+               onclick="return confirm('Delete this rule?')">
+              {{ icon('trash', 13) }} Delete
+            </a>
+          </template>
+          <button type="button" class="btn btn-secondary btn-sm" @click="open = false">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">{{ icon('check', 13) }} Save Rule</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}

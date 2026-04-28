@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..auth import hash_password, require_admin
 from ..db import get_db
 from ..models import LifecycleStage, MrpRule, Plant, Snapshot, Tag, User
+from ..services.demo_seed import reset_demo_data, seed_demo_data
 from ..services.snapshot import _recompute_family_mismatches
 from ..templating import templates
 
@@ -255,3 +256,26 @@ async def set_mrp_rule(
             )
     db.commit()
     return RedirectResponse(url="/admin", status_code=303)
+
+
+# --- Demo data ---------------------------------------------------------------
+
+@router.post("/admin/demo/load")
+async def load_demo(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    result = seed_demo_data(db)
+    db.commit()
+    msg = result["message"]
+    return RedirectResponse(url=f"/admin?demo_msg={msg}", status_code=303)
+
+
+@router.post("/admin/demo/reset")
+async def reset_demo(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    reset_demo_data(db)
+    db.commit()
+    return RedirectResponse(url="/admin?demo_msg=Demo+data+guard+cleared.+You+can+reload+now.", status_code=303)

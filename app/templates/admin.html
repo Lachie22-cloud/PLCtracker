@@ -236,4 +236,26 @@
       </tbody>
     </table>
   </div>
+
+  {# ---- Demo data ---- #}
+  <div class="panel" style="border:2px dashed var(--border-strong);">
+    <h2>Demo data</h2>
+    <p style="color:var(--muted);margin:.5rem 0 1rem;">
+      Loads a realistic dataset: 25 materials, 40 products, governance violations, configured presets, and 5 NPD pipeline requests.
+      Safe to run on an empty database. Use Reset to re-run after clearing data.
+    </p>
+    {% if request.query_params.get('demo_msg') %}
+      <div style="background:var(--ok-soft);border:1px solid var(--ok-border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1rem;color:var(--ok);font-size:.875rem;">
+        {{ request.query_params.get('demo_msg') }}
+      </div>
+    {% endif %}
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+      <form method="post" action="/admin/demo/load">
+        <button type="submit" class="btn btn-primary">Load demo data</button>
+      </form>
+      <form method="post" action="/admin/demo/reset">
+        <button type="submit" class="btn btn-subtle" onclick="return confirm('Clear demo guard? This allows re-loading but does not delete existing data.')">Reset guard</button>
+      </form>
+    </div>
+  </div>
 {% endblock %}

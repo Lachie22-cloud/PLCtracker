@@ -12,8 +12,10 @@ from .config import settings
 from .db import Base, engine, db_session
 from .models import (
     ExtractionRun, GovernanceRule, GovernanceViolation,  # noqa: F401 — needed for SQLAlchemy metadata
-    LifecycleStage, Marc, MarcChange, Material,  # noqa: F401
-    MrpRule, Plant, Product, SchemaMeta, Tag, User,
+    LifecycleStage, Marc, MarcChange, MarcFieldStats, Material,  # noqa: F401
+    MaterialPreset, MrpRule, NpdComment, NpdDivision,  # noqa: F401
+    NpdEmailEvent, NpdRequest, NpdStep, NpdStepDefinition,  # noqa: F401
+    Plant, PresetField, PresetPlant, Product, SchemaMeta, Tag, User,  # noqa: F401
 )
 
 
@@ -295,6 +297,86 @@ def _migrate_mrp_rules_into_governance_rules(db: Session) -> None:
     db.add(SchemaMeta(key=key, value="applied"))
 
 
+def _seed_npd_divisions(db: Session) -> None:
+    """Seed NPD business divisions."""
+    if db.query(NpdDivision).count() > 0:
+        return
+    for code, label in [
+        ("54", "Refinish"),
+        ("55", "Protective Coatings"),
+        ("75", "Avista"),
+    ]:
+        db.add(NpdDivision(code=code, label=label))
+
+
+def _seed_npd_step_definitions(db: Session) -> None:
+    """Seed the 10 standard NPD step definitions."""
+    if db.query(NpdStepDefinition).count() > 0:
+        return
+    steps = [
+        (1, "warehouse_ext", "Warehouse Extension", True, "[]",
+         "Extend the material to all required warehouse plants in SAP so it can be received and stored."),
+        (2, "bulk_master_data", "Bulk Master Data", True, '["bulk_fg","bulk_only"]',
+         "Complete all SAP MARC/MRP master data for the bulk material including MRP type, lot sizes and procurement type."),
+        (3, "fg_master_data", "FG Master Data Complete", True, '["bulk_fg","fg_only"]',
+         "Complete all SAP MARC/MRP master data for the finished-goods material."),
+        (4, "fg_routings", "FG Routings Setup", True, '["bulk_fg","fg_only"]',
+         "Create or extend production routings for the FG material so the production order can be costed and scheduled."),
+        (5, "fg_warehouse_ext", "FG Warehouse Extension", False, '["bulk_fg","fg_only"]',
+         "Extend the FG material to warehouse plants so it can be shipped and received after production."),
+        (6, "costings", "Costings Complete", True, "[]",
+         "Standard cost estimate run and marked in SAP; costing cockpit sign-off completed."),
+        (7, "ebr_ready", "EBR Ready (Experimental Batch)", False, "[]",
+         "All pre-requisites for the experimental/trial batch are confirmed; EBR document approved."),
+        (8, "master_data_check", "Master Data Check", True, "[]",
+         "Final master data review gate: all critical MARC fields validated against governance presets."),
+        (9, "batch_raised", "Batch Raised", False, "[]",
+         "The first production batch has been raised (process order created) in SAP."),
+        (10, "batch_scheduled", "Batch Scheduled", True, "[]",
+         "The production batch has a confirmed scheduled date and has been communicated to the plant."),
+    ]
+    for sort, code, label, blocking, applies_to, description in steps:
+        db.add(NpdStepDefinition(
+            step_code=code,
+            label=label,
+            description=description,
+            is_blocking=blocking,
+            applies_to=applies_to,
+            sort_order=sort,
+        ))
+
+
+def _seed_default_presets(db: Session) -> None:
+    """Seed 7 default material presets (no fields — admin configures fields in UI)."""
+    if db.query(MaterialPreset).count() > 0:
+        return
+    for code, label, order in [
+        ("bulk", "Bulk", 1),
+        ("packaging", "Packaging", 2),
+        ("fg_factory", "Finished Good at Factory", 3),
+        ("mto_factory", "Make to Order at Factory", 4),
+        ("intermediate", "Intermediate", 5),
+        ("fg_warehouse", "Finished Good at Warehouse", 6),
+        ("mto_warehouse", "Make to Order at Warehouse", 7),
+    ]:
+        db.add(MaterialPreset(
+            preset_code=code,
+            label=label,
+            description="",
+            display_order=order,
+        ))
+
+
+def _migration_add_npd_tables(db: Session) -> None:
+    """One-shot guard: new NPD tables are created by Base.metadata.create_all in bootstrap()."""
+    key = "npd_tables_v1"
+    if db.query(SchemaMeta).filter(SchemaMeta.key == key).first():
+        return
+    # create_all is idempotent and already called at the top of bootstrap()
+    Base.metadata.create_all(bind=engine)
+    db.add(SchemaMeta(key=key, value="applied"))
+
+
 def bootstrap() -> None:
     """Create tables and seed data. Safe to call on every startup."""
     Base.metadata.create_all(bind=engine)
@@ -310,6 +392,12 @@ def bootstrap() -> None:
         db.flush()
         _seed_plants(db)
         db.flush()
+        _seed_npd_divisions(db)
+        db.flush()
+        _seed_npd_step_definitions(db)
+        db.flush()
+        _seed_default_presets(db)
+        db.flush()
         _seed_mrp_rules(db)
         db.flush()
         _seed_tags(db)
@@ -322,3 +410,4 @@ def bootstrap() -> None:
         _migration_v2_data_seed(db)
         _migration_drop_new_active_mrp_rules(db)
         _migrate_mrp_rules_into_governance_rules(db)
+        _migration_add_npd_tables(db)

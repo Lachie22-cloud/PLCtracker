@@ -15,11 +15,12 @@ from ..models import (
     GovernanceViolation,
     Marc,
     MarcChange,
+    MarcFieldStats,
     Material,
     Product,
     StageTransition,
 )
-from .governance import load_rules, rebuild_violations
+from .governance import MARC_FIELDS, load_rules, rebuild_violations
 from .sap_odata import MARC_FIELD_MAP, SapODataClient
 from .snapshot import _ensure_plants, _ensure_stages, _recompute_family_mismatches
 
@@ -207,6 +208,30 @@ def _sync_products_from_marc(db: Session, now: datetime) -> None:
     _recompute_family_mismatches(db)
 
 
+def _update_marc_field_stats(db: Session, marc_rows: List[Marc]) -> None:
+    """Count observed values per MARC field and upsert into MarcFieldStats."""
+    now = datetime.utcnow()
+    counts: Dict[Tuple[str, str], int] = {}
+    for marc in marc_rows:
+        for attr in MARC_FIELDS:
+            val = getattr(marc, attr, None)
+            if val:
+                key = (attr.upper(), str(val))
+                counts[key] = counts.get(key, 0) + 1
+    for (field_name, value), cnt in counts.items():
+        existing = db.get(MarcFieldStats, (field_name, value))
+        if existing is None:
+            db.add(MarcFieldStats(
+                field_name=field_name,
+                value=value,
+                seen_count=cnt,
+                last_seen_at=now,
+            ))
+        else:
+            existing.seen_count = cnt
+            existing.last_seen_at = now
+
+
 def run_extraction(
     *,
     source: str = "odata",
@@ -240,10 +265,14 @@ def run_extraction(
                     summary.mara_count += 1
                 db.flush()
 
+                marc_rows_extracted: List[Marc] = []
                 for marc_row in _client.iter_marc():
-                    _, changes = _upsert_marc(db, marc_row, now, run.id)
+                    marc_obj, changes = _upsert_marc(db, marc_row, now, run.id)
+                    marc_rows_extracted.append(marc_obj)
                     summary.marc_count += 1
                     summary.change_count += changes
+                db.flush()
+                _update_marc_field_stats(db, marc_rows_extracted)
                 db.flush()
 
             finally:

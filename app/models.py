@@ -1,11 +1,12 @@
 """SQLAlchemy ORM models for PLCtracker."""
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
+from typing import List, Optional
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -458,3 +459,222 @@ class GovernanceViolation(Base):
         UniqueConstraint("matnr", "werks", "field_name", name="uq_gov_violation_key"),
         Index("ix_gov_violation_matnr", "matnr"),
     )
+
+
+# ---------------------------------------------------------------------------
+# MARC field stats (for preset autocomplete)
+# ---------------------------------------------------------------------------
+
+
+class MarcFieldStats(Base):
+    """Counts of observed values per MARC field — powers preset autocomplete."""
+
+    __tablename__ = "marc_field_stats"
+
+    field_name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255), primary_key=True)
+    seen_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+
+
+# ---------------------------------------------------------------------------
+# Material presets
+# ---------------------------------------------------------------------------
+
+
+class PresetPlant(Base):
+    """Association: which plants use a given preset."""
+
+    __tablename__ = "preset_plant"
+
+    preset_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("material_preset.id"), primary_key=True
+    )
+    plant_code: Mapped[str] = mapped_column(
+        String(16), ForeignKey("plant.plant_code"), primary_key=True
+    )
+
+
+class MaterialPreset(Base):
+    """Named set of MARC field expectations (e.g. 'bulk', 'fg_factory')."""
+
+    __tablename__ = "material_preset"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    preset_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+
+    plants: Mapped[List["Plant"]] = relationship(
+        "Plant",
+        secondary="preset_plant",
+        lazy="selectin",
+    )
+    fields: Mapped[List["PresetField"]] = relationship(
+        "PresetField",
+        order_by="PresetField.sort_order",
+        lazy="selectin",
+    )
+
+
+class PresetField(Base):
+    """One MARC field rule within a MaterialPreset."""
+
+    __tablename__ = "preset_field"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    preset_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("material_preset.id"), nullable=False, index=True
+    )
+    field_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_critical: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allowed_values: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON list
+    severity: Mapped[str] = mapped_column(String(8), nullable=False, default="error")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sap_description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    sap_impact: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    sap_example: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+# ---------------------------------------------------------------------------
+# NPD pipeline
+# ---------------------------------------------------------------------------
+
+
+class NpdDivision(Base):
+    """Business division — used to categorise NPD requests."""
+
+    __tablename__ = "npd_division"
+
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class NpdStepDefinition(Base):
+    """Template definition for each step in the NPD workflow."""
+
+    __tablename__ = "npd_step_definition"
+
+    step_code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    is_blocking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    applies_to: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class NpdRequest(Base):
+    """One new-product-development request tracking a SKU through its gates."""
+
+    __tablename__ = "npd_request"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_no: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="in_progress")
+    request_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    request_from: Mapped[str] = mapped_column(String(32), nullable=False)
+    division_code: Mapped[str] = mapped_column(
+        String(16), ForeignKey("npd_division.code"), nullable=False
+    )
+    entered_by_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    target_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    bulk_sku: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    fg_sku: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    warehouse_plants: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    entered_by: Mapped[User] = relationship("User", foreign_keys=[entered_by_id])
+    steps: Mapped[List["NpdStep"]] = relationship(
+        "NpdStep",
+        order_by="NpdStep.sort_order",
+        lazy="selectin",
+    )
+    comments: Mapped[List["NpdComment"]] = relationship(
+        "NpdComment",
+        order_by="NpdComment.created_at",
+        lazy="selectin",
+    )
+
+
+class NpdStep(Base):
+    """One step within an NpdRequest."""
+
+    __tablename__ = "npd_step"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("npd_request.id"), nullable=False, index=True
+    )
+    step_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="not_started")
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_by_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("user.id"), nullable=True
+    )
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    batch_number: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    scheduled_date: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+
+    completed_by: Mapped[Optional[User]] = relationship(
+        "User", foreign_keys=[completed_by_id]
+    )
+
+    __table_args__ = (
+        UniqueConstraint("request_id", "step_code", name="uq_npd_step_req_code"),
+    )
+
+
+class NpdComment(Base):
+    """Comment on an NPD request."""
+
+    __tablename__ = "npd_comment"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("npd_request.id"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user.id"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship("User")
+
+
+class NpdEmailEvent(Base):
+    """Record of an email (manual paste or Graph API) parsed for NPD step updates."""
+
+    __tablename__ = "npd_email_event"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("npd_request.id"), nullable=True, index=True
+    )
+    received_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    sender: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    subject: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    body_snippet: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    matched_step_code: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    matched_status: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    applied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="manual_paste")
+    raw_payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")

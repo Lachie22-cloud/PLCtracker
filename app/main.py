@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .bootstrap import bootstrap
-from .routers import admin, auth, dashboard, export, governance, products, review, upload
+from .routers import admin, auth, dashboard, export, governance, npd, presets, products, review, upload
 
 
 app = FastAPI(title="PLCtracker", version="0.1.0")
@@ -23,6 +23,8 @@ app.include_router(upload.router)
 app.include_router(export.router)
 app.include_router(admin.router)
 app.include_router(governance.router)
+app.include_router(presets.router)
+app.include_router(npd.router)
 
 
 @app.on_event("startup")

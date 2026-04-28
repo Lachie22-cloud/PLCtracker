@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}NPD Email Events{% endblock %}
+
+{% block breadcrumb %}
+  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+  <a href="/npd">NPD Pipeline</a>
+  <span class="sep">{{ icon('chevron-right', 12) }}</span>
+  <span>Email events</span>
+{% endblock %}
+
+{% block content %}
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Received</th>
+        <th>Sender</th>
+        <th>Subject / Snippet</th>
+        <th>Matched step</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ev in email_events %}
+      <tr>
+        <td class="nowrap text-sm">{{ ev.received_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td class="text-sm" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ev.sender or '—' }}</td>
+        <td style="max-width:260px;">
+          {% if ev.subject %}<div style="font-weight:500;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ev.subject[:80] }}</div>{% endif %}
+          {% if ev.body_snippet %}<div style="font-size:.78rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ ev.body_snippet }}">{{ ev.body_snippet[:120] }}</div>{% endif %}
+        </td>
+        <td>
+          {% if ev.matched_step_code %}
+            <span class="chip chip--mono" style="font-size:.75rem;">{{ ev.matched_step_code }}</span>
+            <span class="text-muted text-sm">→ {{ ev.matched_status }}</span>
+          {% else %}
+            <span class="text-muted text-sm">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <div x-data="{ open: false }">
+            <button type="button" @click="open = !open" class="btn btn-secondary btn-sm">Apply manually</button>
+            <div x-show="open" x-cloak style="margin-top:.5rem;padding:.75rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+              <form method="post" action="/npd/emails/{{ ev.id }}/apply" class="stack" style="gap:.4rem;">
+                <label class="field" style="font-size:.82rem;">
+                  Request ID
+                  <input type="number" name="request_id" required placeholder="e.g. 42" value="{{ ev.request_id or '' }}" style="width:100px;">
+                </label>
+                <label class="field" style="font-size:.82rem;">
+                  Step code
+                  <input type="text" name="step_code" required placeholder="e.g. warehouse_ext" value="{{ ev.matched_step_code or '' }}" style="font-family:monospace;width:160px;">
+                </label>
+                <label class="field" style="font-size:.82rem;">
+                  New status
+                  <select name="new_status">
+                    <option value="completed">completed</option>
+                    <option value="in_progress">in_progress</option>
+                    <option value="blocked">blocked</option>
+                  </select>
+                </label>
+                <div class="row-end">
+                  <button type="button" @click="open = false" class="btn btn-subtle btn-sm">Cancel</button>
+                  <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+        <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:3rem;">No unmatched email events.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

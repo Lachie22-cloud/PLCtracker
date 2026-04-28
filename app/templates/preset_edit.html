@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{% if preset %}Edit {{ preset.label }}{% else %}New Preset{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
+  <a href="/presets">Presets</a>
+  <span class="sep">{{ icon('chevron-right', 12) }}</span>
+  <span>{% if preset %}{{ preset.label }}{% else %}New{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+<div class="detail-grid">
+  {# ---- Left column: metadata ---- #}
+  <div>
+    <div class="panel">
+      <h2 style="margin-bottom:1rem;">Preset details</h2>
+      <form method="post" action="{{ '/presets/' + preset.preset_code + '/edit' if preset else '/presets/new' }}" class="stack">
+        {% if not preset %}
+          <label class="field">Code (slug)
+            <input type="text" name="preset_code" required placeholder="e.g. bulk_fg" pattern="[a-z0-9_]+" title="Lowercase letters, digits and underscores only">
+            <span class="field-hint">Lowercase letters, digits, underscores. Cannot be changed later.</span>
+          </label>
+        {% endif %}
+        <label class="field">Label
+          <input type="text" name="label" required value="{{ preset.label if preset else '' }}" placeholder="e.g. Bulk FG">
+        </label>
+        <label class="field">Description
+          <textarea name="description" placeholder="Describe when this preset applies…">{{ preset.description if preset else '' }}</textarea>
+        </label>
+        <label class="field">Display order
+          <input type="number" name="display_order" value="{{ preset.display_order if preset else 0 }}" min="0">
+        </label>
+        <div class="row-end">
+          <button type="submit" class="btn btn-primary">Save details</button>
+        </div>
+      </form>
+    </div>
+
+    {% if preset %}
+    {# ---- Fields builder ---- #}
+    <div class="panel">
+      <h2 style="margin-bottom:1rem;">Critical fields</h2>
+      {% set critical_fields = preset.fields | selectattr('is_critical') | list %}
+      {% if critical_fields %}
+        <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;">
+          {% for pf in critical_fields %}
+            <div class="panel" style="padding:.75rem;background:#f8fafc;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+              <span class="chip chip--mono" style="font-family:monospace;font-size:.8rem;">{{ pf.field_name.upper() }}</span>
+              <span style="font-weight:500;font-size:.9rem;">{{ pf.label }}</span>
+              <span class="chip {% if pf.severity == 'error' %}chip--error{% elif pf.severity == 'warning' %}chip--warn{% else %}chip--ok{% endif %}" style="font-size:.75rem;">{{ pf.severity }}</span>
+              <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-left:auto;">
+                {% if pf.allowed_values %}
+                  {% for val in pf.allowed_values | from_json %}
+                    <span class="chip" style="font-family:monospace;font-size:.75rem;">{{ val }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span style="font-size:.8rem;color:#94a3b8;">No values set</span>
+                {% endif %}
+              </div>
+              {# Inline values editor #}
+              <div x-data="presetFieldEditor('{{ pf.id }}', '{{ preset.preset_code }}', {{ pf.allowed_values | default('[]') | tojson }})" style="display:flex;gap:.5rem;align-items:center;width:100%;">
+                <div style="position:relative;flex:1;">
+                  <input type="text" x-model="newVal" @keydown.enter.prevent="addVal()"
+                         @input.debounce.400ms="fetchSuggestions('{{ pf.field_name }}')"
+                         @focus="fetchSuggestions('{{ pf.field_name }}')"
+                         placeholder="Add value + Enter" class="input input-sm" style="width:100%;">
+                  <div x-show="suggestions.length > 0" x-cloak
+                       style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:6px;z-index:50;max-height:160px;overflow-y:auto;">
+                    <template x-for="s in suggestions" :key="s.value">
+                      <div @click="addSuggestion(s.value)"
+                           style="padding:.35rem .6rem;cursor:pointer;font-family:monospace;font-size:.82rem;"
+                           x-text="s.value + ' (' + s.seen_count + ')'"></div>
+                    </template>
+                  </div>
+                </div>
+                <button type="button" @click="addVal()" class="btn btn-secondary btn-sm">Add</button>
+                <button type="button" @click="saveValues()" class="btn btn-primary btn-sm">Save</button>
+              </div>
+              <template x-for="(v, i) in editVals" :key="v">
+                <span class="chip" style="font-family:monospace;font-size:.75rem;">
+                  <span x-text="v"></span>
+                  <button type="button" @click="removeVal(i)" style="background:none;border:none;cursor:pointer;padding:0;margin-left:4px;color:#94a3b8;">{{ icon('x', 10) }}</button>
+                </span>
+              </template>
+              <form method="post" action="/presets/{{ preset.preset_code }}/fields/{{ pf.id }}/delete" style="margin-left:auto;">
+                <button type="submit" class="btn btn-subtle btn-sm" onclick="return confirm('Delete this field?')">{{ icon('x', 14) }}</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted text-sm">No critical fields yet.</p>
+      {% endif %}
+
+      <h2 style="margin:1.5rem 0 1rem;">Guidance fields</h2>
+      {% set guidance_fields = preset.fields | rejectattr('is_critical') | list %}
+      {% if guidance_fields %}
+        <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;">
+          {% for pf in guidance_fields %}
+            <div class="panel" style="padding:.75rem;background:#f8fafc;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+              <span class="chip chip--mono" style="font-family:monospace;font-size:.8rem;">{{ pf.field_name.upper() }}</span>
+              <span style="font-weight:500;font-size:.9rem;">{{ pf.label }}</span>
+              <span class="chip {% if pf.severity == 'warning' %}chip--warn{% else %}chip--ok{% endif %}" style="font-size:.75rem;">{{ pf.severity }}</span>
+              <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-left:auto;">
+                {% if pf.allowed_values %}
+                  {% for val in pf.allowed_values | from_json %}
+                    <span class="chip" style="font-family:monospace;font-size:.75rem;">{{ val }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span style="font-size:.8rem;color:#94a3b8;">No values set</span>
+                {% endif %}
+              </div>
+              <div x-data="presetFieldEditor('{{ pf.id }}', '{{ preset.preset_code }}', {{ pf.allowed_values | default('[]') | tojson }})" style="display:flex;gap:.5rem;align-items:center;width:100%;">
+                <div style="position:relative;flex:1;">
+                  <input type="text" x-model="newVal" @keydown.enter.prevent="addVal()"
+                         @input.debounce.400ms="fetchSuggestions('{{ pf.field_name }}')"
+                         @focus="fetchSuggestions('{{ pf.field_name }}')"
+                         placeholder="Add value + Enter" class="input input-sm" style="width:100%;">
+                  <div x-show="suggestions.length > 0" x-cloak
+                       style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:6px;z-index:50;max-height:160px;overflow-y:auto;">
+                    <template x-for="s in suggestions" :key="s.value">
+                      <div @click="addSuggestion(s.value)"
+                           style="padding:.35rem .6rem;cursor:pointer;font-family:monospace;font-size:.82rem;"
+                           x-text="s.value + ' (' + s.seen_count + ')'"></div>
+                    </template>
+                  </div>
+                </div>
+                <button type="button" @click="addVal()" class="btn btn-secondary btn-sm">Add</button>
+                <button type="button" @click="saveValues()" class="btn btn-primary btn-sm">Save</button>
+              </div>
+              <template x-for="(v, i) in editVals" :key="v">
+                <span class="chip" style="font-family:monospace;font-size:.75rem;">
+                  <span x-text="v"></span>
+                  <button type="button" @click="removeVal(i)" style="background:none;border:none;cursor:pointer;padding:0;margin-left:4px;color:#94a3b8;">{{ icon('x', 10) }}</button>
+                </span>
+              </template>
+              <form method="post" action="/presets/{{ preset.preset_code }}/fields/{{ pf.id }}/delete" style="margin-left:auto;">
+                <button type="submit" class="btn btn-subtle btn-sm" onclick="return confirm('Delete this field?')">{{ icon('x', 14) }}</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted text-sm">No guidance fields yet.</p>
+      {% endif %}
+
+      {# Add field form #}
+      <div class="divider" style="margin:1.25rem 0;"></div>
+      <h3 style="margin-bottom:.75rem;">Add field</h3>
+      <form method="post" action="/presets/{{ preset.preset_code }}/fields" class="stack">
+        <div class="row">
+          <label class="field" style="flex:1;">
+            MARC field
+            <select name="field_name" required>
+              <option value="">Select…</option>
+              {% for key, lbl in marc_fields.items() %}
+                <option value="{{ key }}">{{ key.upper() }} — {{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="field" style="flex:2;">
+            Display label
+            <input type="text" name="label" required placeholder="e.g. MRP Type">
+          </label>
+        </div>
+        <div class="row">
+          <label class="field">
+            Severity
+            <select name="severity">
+              <option value="error">Error</option>
+              <option value="warning">Warning</option>
+              <option value="info">Info</option>
+            </select>
+          </label>
+          <label class="field" style="align-self:flex-end;">
+            <span style="display:flex;align-items:center;gap:.5rem;">
+              <input type="checkbox" name="is_critical" value="1" checked>
+              Critical field
+            </span>
+          </label>
+          <div class="spacer"></div>
+          <button type="submit" class="btn btn-primary" style="align-self:flex-end;">{{ icon('plus', 14) }} Add</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---- Right column: plant assignment ---- #}
+  {% if preset %}
+  <div>
+    <div class="panel">
+      <h2 style="margin-bottom:1rem;">Plant assignment</h2>
+      <p class="text-sm text-muted">Select which plants this preset applies to. A plant can only belong to one preset.</p>
+      <form method="post" action="/presets/{{ preset.preset_code }}/plants" class="stack" style="margin-top:1rem;">
+        {% set assigned_codes = preset.plants | map(attribute='plant_code') | list %}
+        <div style="display:flex;flex-direction:column;gap:.4rem;max-height:400px;overflow-y:auto;">
+          {% for plant in all_plants %}
+            <label style="display:flex;align-items:center;gap:.6rem;padding:.35rem .5rem;border-radius:6px;cursor:pointer;"
+                   x-data="{}" @mouseenter="$el.style.background='#f1f5f9'" @mouseleave="$el.style.background=''">
+              <input type="checkbox" name="plant_codes" value="{{ plant.plant_code }}"
+                     {% if plant.plant_code in assigned_codes %}checked{% endif %}>
+              <span class="mono" style="font-size:.85rem;">{{ plant.plant_code }}</span>
+              <span class="text-muted text-sm">{{ plant.description or plant.plant_type }}</span>
+              <span class="chip" style="font-size:.7rem;margin-left:auto;">{{ plant.plant_type }}</span>
+            </label>
+          {% else %}
+            <p class="text-muted text-sm">No plants configured.</p>
+          {% endfor %}
+        </div>
+        <div class="row-end" style="margin-top:.75rem;">
+          <button type="submit" class="btn btn-primary">Save plant assignments</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function presetFieldEditor(fieldId, presetCode, initialVals) {
+  return {
+    editVals: Array.isArray(initialVals) ? [...initialVals] : [],
+    newVal: '',
+    suggestions: [],
+    addVal() {
+      const v = this.newVal.trim().toUpperCase();
+      if (v && !this.editVals.includes(v)) {
+        this.editVals.push(v);
+      }
+      this.newVal = '';
+      this.suggestions = [];
+    },
+    addSuggestion(v) {
+      if (!this.editVals.includes(v)) {
+        this.editVals.push(v);
+      }
+      this.newVal = '';
+      this.suggestions = [];
+    },
+    removeVal(i) {
+      this.editVals.splice(i, 1);
+    },
+    async fetchSuggestions(fieldName) {
+      if (!fieldName) return;
+      try {
+        const res = await fetch('/presets/field-stats/' + fieldName.toUpperCase());
+        const data = await res.json();
+        this.suggestions = data.filter(s => !this.editVals.includes(s.value)).slice(0, 10);
+      } catch (e) {
+        this.suggestions = [];
+      }
+    },
+    async saveValues() {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/presets/' + presetCode + '/fields/' + fieldId + '/values';
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'allowed_values_json';
+      input.value = JSON.stringify(this.editVals);
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+    },
+  };
+}
+</script>
+{% endblock %}

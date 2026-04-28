@@ -1,8 +1,10 @@
 """Shared Jinja2 Templates object so all routers use the same env/filters."""
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from fastapi.templating import Jinja2Templates
 
@@ -23,5 +25,18 @@ def _fmt_date(dt: datetime | None) -> str:
     return dt.strftime("%Y-%m-%d %H:%M")
 
 
+def _from_json(value: Any) -> Any:
+    """Parse a JSON string, returning the Python object (list, dict, etc.)."""
+    if value is None:
+        return []
+    if isinstance(value, (list, dict)):
+        return value
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return []
+
+
 templates.env.filters["days_since"] = _days_since
 templates.env.filters["fmt_date"] = _fmt_date
+templates.env.filters["from_json"] = _from_json

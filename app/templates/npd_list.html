@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}NPD Pipeline{% endblock %}
+
+{% block header_actions %}
+  <button type="button" class="btn btn-primary" x-data @click="$dispatch('open-new-npd')">
+    {{ icon('plus', 14) }} New Request
+  </button>
+{% endblock %}
+
+{% block content %}
+{# Flash message #}
+
+{# Filter bar #}
+<form method="get" class="filter-bar" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+  <select name="status" class="input input-sm">
+    <option value="" {% if not filter_status %}selected{% endif %}>All statuses</option>
+    <option value="in_progress" {% if filter_status == 'in_progress' %}selected{% endif %}>In Progress</option>
+    <option value="on_hold" {% if filter_status == 'on_hold' %}selected{% endif %}>On Hold</option>
+    <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}>Completed</option>
+    <option value="cancelled" {% if filter_status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+  </select>
+  <select name="request_type" class="input input-sm">
+    <option value="" {% if not filter_type %}selected{% endif %}>All types</option>
+    {% for val, lbl in request_types %}
+      <option value="{{ val }}" {% if filter_type == val %}selected{% endif %}>{{ lbl }}</option>
+    {% endfor %}
+  </select>
+  <select name="division" class="input input-sm">
+    <option value="" {% if not filter_division %}selected{% endif %}>All divisions</option>
+    {% for div in divisions %}
+      <option value="{{ div.code }}" {% if filter_division == div.code %}selected{% endif %}>{{ div.label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-sm">Filter</button>
+  <a href="/npd" class="btn btn-sm btn-ghost">Clear</a>
+  <div class="spacer"></div>
+  <a href="/npd/board" class="btn btn-secondary btn-sm">{{ icon('kanban', 14) }} Board view</a>
+</form>
+
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Request No</th>
+        <th>Type</th>
+        <th>Division</th>
+        <th>Bulk SKU</th>
+        <th>FG SKU</th>
+        <th>Progress</th>
+        <th>Next step</th>
+        <th>Target</th>
+        <th>Days open</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in npd_requests %}
+      {% set total_steps = req.steps | rejectattr('status', 'equalto', 'n_a') | list | length %}
+      {% set done_steps = req.steps | selectattr('status', 'equalto', 'completed') | list | length %}
+      {% set next_step = req.steps | rejectattr('status', 'equalto', 'completed') | rejectattr('status', 'equalto', 'n_a') | list | first %}
+      {% set days_open = req.created_at | days_since %}
+      <tr>
+        <td><a href="/npd/{{ req.id }}" class="mono" style="font-weight:500;">{{ req.request_no }}</a></td>
+        <td>
+          {% for val, lbl in request_types %}{% if val == req.request_type %}<span class="chip" style="font-size:.75rem;">{{ lbl }}</span>{% endif %}{% endfor %}
+        </td>
+        <td>
+          {% for div in divisions %}{% if div.code == req.division_code %}<span class="chip chip--factory" style="font-size:.75rem;">{{ div.label }}</span>{% endif %}{% endfor %}
+        </td>
+        <td class="mono">{{ req.bulk_sku or '—' }}</td>
+        <td class="mono">{{ req.fg_sku or '—' }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:.4rem;">
+            <div style="width:80px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+              <div style="height:100%;width:{{ ((done_steps / total_steps * 100) if total_steps else 0) | int }}%;background:#22c55e;border-radius:3px;"></div>
+            </div>
+            <span class="text-sm text-muted">{{ done_steps }}/{{ total_steps }}</span>
+          </div>
+        </td>
+        <td>
+          {% if next_step %}
+            <span style="font-size:.8rem;">
+              {% for sd in step_defs %}{% if sd.step_code == next_step.step_code %}{{ sd.label }}{% endif %}{% endfor %}
+            </span>
+          {% else %}
+            <span class="text-muted text-sm">—</span>
+          {% endif %}
+        </td>
+        <td class="text-sm">{{ req.target_date.strftime('%Y-%m-%d') if req.target_date else '—' }}</td>
+        <td>
+          <span class="chip" style="font-size:.75rem;{% if days_open > 30 %}background:#fef2f2;border-color:#fca5a5;color:#dc2626;{% endif %}">{{ days_open }}d</span>
+        </td>
+        <td>
+          {% if req.status == 'in_progress' %}
+            <span class="chip" style="background:#eff6ff;border-color:#93c5fd;color:#1d4ed8;">in progress</span>
+          {% elif req.status == 'completed' %}
+            <span class="chip chip--ok">completed</span>
+          {% elif req.status == 'on_hold' %}
+            <span class="chip chip--warn">on hold</span>
+          {% elif req.status == 'cancelled' %}
+            <span class="chip" style="background:#f8fafc;color:#94a3b8;">cancelled</span>
+          {% else %}
+            <span class="chip">{{ req.status }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+        <tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:3rem;">No NPD requests yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# New Request Modal #}
+<div x-data="{ open: false }" @open-new-npd.window="open = true">
+  <div x-show="open" x-cloak
+       style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;"
+       @click.self="open = false">
+    <div style="background:#fff;border-radius:12px;padding:2rem;width:min(560px,95vw);max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+        <h2 style="margin:0;">New NPD Request</h2>
+        <button type="button" @click="open = false" style="background:none;border:none;cursor:pointer;">{{ icon('x', 18) }}</button>
+      </div>
+      <form method="post" action="/npd" class="stack">
+        <div class="row">
+          <label class="field" style="flex:1;">
+            Request type
+            <select name="request_type" required>
+              {% for val, lbl in request_types %}
+                <option value="{{ val }}">{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="field" style="flex:1;">
+            Request from
+            <select name="request_from" required>
+              {% for val, lbl in request_from_choices %}
+                <option value="{{ val }}">{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <label class="field">
+          Division
+          <select name="division_code" required>
+            {% for div in divisions %}
+              <option value="{{ div.code }}">{{ div.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="row">
+          <label class="field" style="flex:1;">
+            Bulk SKU
+            <input type="text" name="bulk_sku" placeholder="e.g. 123456" style="font-family:monospace;">
+          </label>
+          <label class="field" style="flex:1;">
+            FG SKU
+            <input type="text" name="fg_sku" placeholder="e.g. 789012" style="font-family:monospace;">
+          </label>
+        </div>
+        <label class="field">
+          Warehouse plants (comma or newline separated)
+          <textarea name="warehouse_plants" rows="2" placeholder="e.g. W001, W002"></textarea>
+        </label>
+        <label class="field">
+          Target date
+          <input type="date" name="target_date">
+        </label>
+        <label class="field">
+          Notes
+          <textarea name="notes" rows="2" placeholder="Any additional context…"></textarea>
+        </label>
+        <div class="row-end">
+          <button type="button" @click="open = false" class="btn btn-subtle">Cancel</button>
+          <button type="submit" class="btn btn-primary">{{ icon('plus', 14) }} Create request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 """Governance rules engine: load rules, evaluate MARC rows, rebuild violations."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
@@ -8,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import GovernanceRule, GovernanceViolation, Marc, Material
+from ..models import GovernanceRule, GovernanceViolation, Marc, Material, MaterialPreset, PresetField
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,68 @@ class RuleIndex:
 def load_rules(db: Session) -> RuleIndex:
     rules = list(db.scalars(select(GovernanceRule)).all())
     return RuleIndex(_rules=rules)
+
+
+# ---------------------------------------------------------------------------
+# Preset index
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PresetIndex:
+    _by_plant: Dict[str, MaterialPreset] = field(default_factory=dict)
+
+    def match(self, plant_code: str) -> Optional[MaterialPreset]:
+        return self._by_plant.get(plant_code)
+
+
+def load_presets(db: Session) -> PresetIndex:
+    from sqlalchemy.orm import joinedload
+    presets = list(db.scalars(
+        select(MaterialPreset).options(
+            joinedload(MaterialPreset.plants),
+            joinedload(MaterialPreset.fields),
+        )
+    ).unique().all())
+    idx: Dict[str, MaterialPreset] = {}
+    for p in presets:
+        for plant in p.plants:
+            idx[plant.plant_code] = p
+    return PresetIndex(_by_plant=idx)
+
+
+def sync_preset_fields_to_rules(db: Session, preset_index: PresetIndex) -> None:
+    """Ensure each PresetField has a corresponding GovernanceRule for its plant."""
+    for plant_code, preset in preset_index._by_plant.items():
+        for pf in preset.fields:
+            if not pf.allowed_values:
+                continue
+            allowed_list = json.loads(pf.allowed_values)
+            if not allowed_list:
+                continue
+            # Find or create rule scoped to this plant + field
+            rule = (
+                db.query(GovernanceRule)
+                .filter(
+                    GovernanceRule.field_name == pf.field_name.upper(),
+                    GovernanceRule.scope_plant_code == plant_code,
+                    GovernanceRule.scope_mtart.is_(None),
+                    GovernanceRule.scope_stage_code.is_(None),
+                )
+                .first()
+            )
+            csv_vals = ",".join(allowed_list)
+            if rule is None:
+                db.add(GovernanceRule(
+                    field_name=pf.field_name.upper(),
+                    scope_plant_code=plant_code,
+                    allowed_values=csv_vals,
+                    severity=pf.severity,
+                ))
+            else:
+                rule.allowed_values = csv_vals
+                rule.severity = pf.severity
+    db.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +200,9 @@ def rebuild_violations(db: Session, rule_index: Optional[RuleIndex] = None) -> i
 
     Resolves violations that no longer apply; creates new ones.
     """
+    # Sync preset fields into governance rules first so they are picked up by rule_index
+    sync_preset_fields_to_rules(db, load_presets(db))
+
     if rule_index is None:
         rule_index = load_rules(db)
 

@@ -15,6 +15,7 @@
     <a href="/dashboard" class="nav-item {% if request.url.path == '/dashboard' %}active{% endif %}">{{ icon('chart',   18) }} Dashboard</a>
     <a href="/review"    class="nav-item {% if request.url.path.startswith('/review') %}active{% endif %}">{{ icon('list-checks', 18) }} Obs review</a>
     <a href="/upload"    class="nav-item {% if request.url.path == '/upload'    %}active{% endif %}">{{ icon('upload',  18) }} Upload</a>
+    <a href="/npd"      class="nav-item {% if request.url.path.startswith('/npd') %}active{% endif %}">{{ icon('plus-circle', 18) }} NPD Pipeline</a>
   </div>
 
   {% if user.role == 'admin' %}
@@ -23,6 +24,7 @@
       <a href="/governance/violations" class="nav-item {% if request.url.path.startswith('/governance/violations') %}active{% endif %}">{{ icon('list-checks', 18) }} Violations</a>
       <a href="/governance/rules"      class="nav-item {% if request.url.path.startswith('/governance/rules') %}active{% endif %}">{{ icon('settings', 18) }} Rules</a>
       <a href="/governance/runs"       class="nav-item {% if request.url.path.startswith('/governance/runs') %}active{% endif %}">{{ icon('chart', 18) }} Runs</a>
+      <a href="/presets"               class="nav-item {% if request.url.path.startswith('/presets') %}active{% endif %}">{{ icon('settings', 18) }} Presets</a>
     </div>
     <div class="sidebar__label">Admin</div>
     <div class="sidebar__section">

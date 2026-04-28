@@ -17,7 +17,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 MDG_ASSETS = Path(__file__).resolve().parents[1] / "frontend" / "dist" / "assets"
 if MDG_ASSETS.is_dir():
-    app.mount("/mdg/assets", StaticFiles(directory=str(MDG_ASSETS)), name="mdg-assets")
+    app.mount("/assets", StaticFiles(directory=str(MDG_ASSETS)), name="mdg-assets")
 
 app.include_router(auth.router)
 app.include_router(products.router)

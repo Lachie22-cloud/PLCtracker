@@ -365,7 +365,7 @@ async def npd_step_update(
         incomplete_blockers = [s for s in predecessor_steps if s.status != "completed"]
         if incomplete_blockers:
             blocker_labels = [
-                step_defs.get(s.step_code).label if step_defs.get(s.step_code) else s.step_code
+                step_defs[s.step_code].label if s.step_code in step_defs else s.step_code
                 for s in incomplete_blockers
             ]
             msg = f"Cannot advance: blocking step(s) not complete: {', '.join(blocker_labels)}"

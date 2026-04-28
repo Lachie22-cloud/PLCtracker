@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install ruff mypy pytest httpx
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Typecheck
+        run: mypy app/ --ignore-missing-imports
+
+      - name: Tests
+        env:
+          PLCT_DB_PATH: /tmp/test.db
+          PLCT_SECRET_KEY: test-secret
+          PLCT_ADMIN_EMAIL: admin@test.local
+          PLCT_ADMIN_PASSWORD: admin-pw
+          PLCT_ADMIN_NAME: Admin
+        run: pytest tests/ -v
+
+      - name: Health endpoint check
+        env:
+          PLCT_DB_PATH: /tmp/health.db
+          PLCT_SECRET_KEY: test-secret
+          PLCT_ADMIN_EMAIL: admin@test.local
+          PLCT_ADMIN_PASSWORD: admin-pw
+          PLCT_ADMIN_NAME: Admin
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8765 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID}' EXIT
+
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/healthz > /tmp/healthz.txt; then
+              break
+            fi
+            sleep 1
+          done
+
+          grep -q '"ok":true' /tmp/healthz.txt
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          curl --fail --silent --show-error -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

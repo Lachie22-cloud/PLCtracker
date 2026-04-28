@@ -7,13 +7,17 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .bootstrap import bootstrap
-from .routers import admin, auth, dashboard, export, governance, npd, presets, products, review, upload
+from .routers import admin, auth, dashboard, export, governance, mdg, npd, presets, products, review, upload
 
 
 app = FastAPI(title="PLCtracker", version="0.1.0")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+MDG_ASSETS = Path(__file__).resolve().parents[1] / "frontend" / "dist" / "assets"
+if MDG_ASSETS.is_dir():
+    app.mount("/mdg/assets", StaticFiles(directory=str(MDG_ASSETS)), name="mdg-assets")
 
 app.include_router(auth.router)
 app.include_router(products.router)
@@ -25,6 +29,7 @@ app.include_router(admin.router)
 app.include_router(governance.router)
 app.include_router(presets.router)
 app.include_router(npd.router)
+app.include_router(mdg.router)
 
 
 @app.on_event("startup")

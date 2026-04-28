@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-def _env(name: str, default: str | None = None) -> str | None:
+def _env(name: str, default: str = "") -> str:
     value = os.getenv(name)
     if value is None or value == "":
         return default

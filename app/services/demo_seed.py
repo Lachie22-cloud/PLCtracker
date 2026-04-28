@@ -382,16 +382,20 @@ def seed_demo_data(db: Session) -> dict:
 
     # ---- Update MarcFieldStats ----
     all_marc = list(db.scalars(select(Marc)).all())
+    counts: dict[tuple[str, str], int] = {}
     for marc in all_marc:
         for field_attr in ["dismm", "dispo", "strgr", "beskz", "dispr", "mmsta"]:
             val = getattr(marc, field_attr, None)
             if val:
-                existing = db.get(MarcFieldStats, (field_attr.upper(), val))
-                if existing:
-                    existing.seen_count += 1
-                    existing.last_seen_at = _NOW
-                else:
-                    db.add(MarcFieldStats(field_name=field_attr.upper(), value=val, seen_count=1, last_seen_at=_NOW))
+                key = (field_attr.upper(), str(val))
+                counts[key] = counts.get(key, 0) + 1
+    for (field_name, value), cnt in counts.items():
+        existing = db.get(MarcFieldStats, (field_name, value))
+        if existing:
+            existing.seen_count = cnt
+            existing.last_seen_at = _NOW
+        else:
+            db.add(MarcFieldStats(field_name=field_name, value=value, seen_count=cnt, last_seen_at=_NOW))
     db.flush()
 
     # ---- Products (direct creation, mirroring MARC data) ----

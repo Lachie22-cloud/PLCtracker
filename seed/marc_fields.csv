@@ -1,0 +1,21 @@
+field_name,label,data_type,plc_relevant
+MMSTA,Plant-Specific Material Status,string,true
+DISPR,MRP Profile,string,true
+DISMM,MRP Type,string,true
+DISPO,MRP Controller,string,false
+BESKZ,Procurement Type,string,true
+SOBSL,Special Procurement Type,string,false
+EKGRP,Purchasing Group,string,false
+DISGR,MRP Group,string,false
+EISBE,Safety Stock,decimal,false
+MINBE,Reorder Point,decimal,false
+LOSFX,Fixed Lot Size,decimal,false
+PLIFZ,Planned Delivery Time,integer,false
+WEBAZ,GR Processing Time,integer,false
+LGPRO,Issue Storage Location,string,false
+LGFSB,External Procurement SL,string,false
+FHORI,Scheduling Margin Key,string,false
+SCHGT,Bulk Material Flag,string,false
+PERKZ,Period Indicator,string,false
+MTVFP,Availability Check,string,false
+STRGR,Strategy Group,string,false

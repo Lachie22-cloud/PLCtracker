@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Governance Rules{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Governance Rules</h1>
+</div>
+
+<form method="post" action="/governance/rules" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;margin-bottom:1.5rem;padding:1rem;background:#f8fafc;border-radius:.5rem;border:1px solid #e2e8f0;">
+  <div style="display:flex;flex-direction:column;gap:.25rem;">
+    <label style="font-size:.75rem;font-weight:600;color:#64748b;">Field *</label>
+    <input type="text" name="field_name" placeholder="e.g. DISMM" required class="input input-sm" style="width:100px;">
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.25rem;">
+    <label style="font-size:.75rem;font-weight:600;color:#64748b;">MTART</label>
+    <input type="text" name="scope_mtart" placeholder="blank=all" class="input input-sm" style="width:90px;">
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.25rem;">
+    <label style="font-size:.75rem;font-weight:600;color:#64748b;">Plant</label>
+    <input type="text" name="scope_plant_code" placeholder="blank=all" class="input input-sm" style="width:90px;">
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.25rem;">
+    <label style="font-size:.75rem;font-weight:600;color:#64748b;">Stage</label>
+    <input type="text" name="scope_stage_code" placeholder="blank=all" class="input input-sm" style="width:90px;">
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.25rem;">
+    <label style="font-size:.75rem;font-weight:600;color:#64748b;">Expected value</label>
+    <input type="text" name="expected_value" placeholder="exact match" class="input input-sm" style="width:120px;">
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.25rem;">
+    <label style="font-size:.75rem;font-weight:600;color:#64748b;">Allowed values (CSV)</label>
+    <input type="text" name="allowed_values" placeholder="e.g. NOPL,OBSO" class="input input-sm" style="width:140px;">
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.25rem;">
+    <label style="font-size:.75rem;font-weight:600;color:#64748b;">Severity</label>
+    <select name="severity" class="input input-sm" style="width:90px;">
+      <option value="error">error</option>
+      <option value="warning">warning</option>
+      <option value="info">info</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">Add rule</button>
+</form>
+
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr><th>Field</th><th>MTART</th><th>Plant</th><th>Stage</th><th>Expected</th><th>Allowed values</th><th>Severity</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in rules %}
+      <tr>
+        <td><strong>{{ r.field_name }}</strong></td>
+        <td>{{ r.scope_mtart or '—' }}</td>
+        <td>{{ r.scope_plant_code or '—' }}</td>
+        <td>{{ r.scope_stage_code or '—' }}</td>
+        <td style="font-family:monospace;">{{ r.expected_value or '—' }}</td>
+        <td style="font-family:monospace;">{{ r.allowed_values or '—' }}</td>
+        <td>
+          <span class="badge {% if r.severity == 'error' %}badge-red{% elif r.severity == 'warning' %}badge-yellow{% else %}badge-grey{% endif %}">{{ r.severity }}</span>
+        </td>
+        <td>
+          <form method="post" action="/governance/rules/{{ r.id }}/delete" style="display:inline">
+            <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Delete this rule?')">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:2rem;">No governance rules configured.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

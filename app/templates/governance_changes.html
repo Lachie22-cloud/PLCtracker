@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Changes — {{ matnr }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ matnr }}</h1>
+    {% if material %}<p style="color:#64748b;margin-top:.25rem;">{{ material.maktx }} &nbsp;·&nbsp; {{ material.mtart }}</p>{% endif %}
+  </div>
+  <a href="/governance/violations" class="btn btn-ghost btn-sm">← Violations</a>
+</div>
+
+<h2 style="margin-top:1.5rem;">Current MARC state</h2>
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr><th>Plant</th><th>MMSTA</th><th>DISPR</th><th>DISMM</th><th>BESKZ</th><th>EKGRP</th><th>EISBE</th><th>Last seen</th></tr>
+    </thead>
+    <tbody>
+      {% for m in marc_rows %}
+      <tr>
+        <td>{{ m.werks }}</td>
+        <td>{{ m.mmsta or '—' }}</td>
+        <td>{{ m.dispr or '—' }}</td>
+        <td>{{ m.dismm or '—' }}</td>
+        <td>{{ m.beskz or '—' }}</td>
+        <td>{{ m.ekgrp or '—' }}</td>
+        <td>{{ m.eisbe or '—' }}</td>
+        <td style="color:#64748b;font-size:.8rem;">{{ m.last_seen_at.strftime('%Y-%m-%d') if m.last_seen_at else '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:2rem;">No MARC rows for this material.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 style="margin-top:1.5rem;">Field change history</h2>
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr><th>Plant</th><th>Field</th><th>Old value</th><th>New value</th><th>Detected</th></tr>
+    </thead>
+    <tbody>
+      {% for c in changes %}
+      <tr>
+        <td>{{ c.werks }}</td>
+        <td><strong>{{ c.field_name }}</strong></td>
+        <td style="font-family:monospace;color:#94a3b8;">{{ c.old_value or '—' }}</td>
+        <td style="font-family:monospace;">{{ c.new_value or '—' }}</td>
+        <td style="color:#64748b;font-size:.8rem;">{{ c.detected_at.strftime('%Y-%m-%d %H:%M') if c.detected_at else '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:2rem;">No field changes recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

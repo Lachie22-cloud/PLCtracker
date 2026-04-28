@@ -18,6 +18,12 @@
   </div>
 
   {% if user.role == 'admin' %}
+    <div class="sidebar__label">Governance</div>
+    <div class="sidebar__section">
+      <a href="/governance/violations" class="nav-item {% if request.url.path.startswith('/governance/violations') %}active{% endif %}">{{ icon('list-checks', 18) }} Violations</a>
+      <a href="/governance/rules"      class="nav-item {% if request.url.path.startswith('/governance/rules') %}active{% endif %}">{{ icon('settings', 18) }} Rules</a>
+      <a href="/governance/runs"       class="nav-item {% if request.url.path.startswith('/governance/runs') %}active{% endif %}">{{ icon('chart', 18) }} Runs</a>
+    </div>
     <div class="sidebar__label">Admin</div>
     <div class="sidebar__section">
       <a href="/admin" class="nav-item {% if request.url.path.startswith('/admin') %}active{% endif %}">{{ icon('settings', 18) }} Settings</a>

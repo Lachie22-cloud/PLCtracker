@@ -23,6 +23,7 @@ from ..models import (
     SnapshotRow,
     StageTransition,
 )
+from .governance import rebuild_violations
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +318,7 @@ def process_upload(
 
     # --- Family-status mismatch pass --------------------------------------
     summary.family_mismatches = _recompute_family_mismatches(db)
+    rebuild_violations(db)
 
     db.flush()
     return summary

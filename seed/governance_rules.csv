@@ -1,0 +1,4 @@
+field_name,scope_mtart,scope_plant_code,scope_stage_code,expected_value,allowed_values,severity
+DISPR,,,O1,,NOPL,error
+DISPR,,,O2,,NOPL,error
+DISPR,,,O3,,OBSO,error

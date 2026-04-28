@@ -4,13 +4,17 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .auth import hash_password
 from .config import settings
 from .db import Base, engine, db_session
-from .models import LifecycleStage, MrpRule, Plant, Product, SchemaMeta, Tag, User
+from .models import (
+    ExtractionRun, GovernanceRule, GovernanceViolation,
+    LifecycleStage, Marc, MarcChange, Material,
+    MrpRule, Plant, Product, SchemaMeta, Tag, User,
+)
 
 
 SEED_DIR = Path(__file__).resolve().parent.parent / "seed"
@@ -223,6 +227,74 @@ def _migration_drop_new_active_mrp_rules(db: Session) -> None:
     db.add(SchemaMeta(key=key, value="applied"))
 
 
+def _migration_add_governance_columns(db: Session) -> None:
+    """Add snapshot.source column if missing (MDG phase-1 structural migration)."""
+    if not _sqlite_has_column(db, "snapshot", "source"):
+        db.execute(
+            text("ALTER TABLE snapshot ADD COLUMN source VARCHAR(16) NOT NULL DEFAULT 'upload'")
+        )
+
+
+def _seed_governance_rules(db: Session) -> None:
+    """Seed governance_rule rows from seed/governance_rules.csv (skip if any exist)."""
+    if db.query(GovernanceRule).count() > 0:
+        return
+    path = SEED_DIR / "governance_rules.csv"
+    if not path.exists():
+        return
+    with path.open() as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            db.add(
+                GovernanceRule(
+                    field_name=row["field_name"].strip().upper(),
+                    scope_mtart=row["scope_mtart"].strip() or None,
+                    scope_plant_code=row["scope_plant_code"].strip() or None,
+                    scope_stage_code=row["scope_stage_code"].strip() or None,
+                    expected_value=row["expected_value"].strip() or None,
+                    allowed_values=row["allowed_values"].strip() or None,
+                    severity=row["severity"].strip() or "error",
+                )
+            )
+
+
+def _migrate_mrp_rules_into_governance_rules(db: Session) -> None:
+    """One-shot: copy existing MrpRule rows into GovernanceRule as DISPR rules.
+
+    Only runs once (tracked in schema_meta). Safe on a fresh DB where
+    _seed_governance_rules already wrote the DISPR rules (the guard prevents
+    doubling up because we skip if any GovernanceRule rows exist in seeding,
+    and skip here if schema_meta key already set).
+    """
+    key = "migrate_mrp_rules_to_governance_v1"
+    if db.query(SchemaMeta).filter(SchemaMeta.key == key).first():
+        return
+    for rule in db.scalars(select(MrpRule)).all():
+        # Check if an equivalent governance rule already exists
+        existing = (
+            db.query(GovernanceRule)
+            .filter(
+                GovernanceRule.field_name == "DISPR",
+                GovernanceRule.scope_plant_code == rule.plant_code,
+                GovernanceRule.scope_stage_code == rule.stage_code,
+            )
+            .first()
+        )
+        if not existing:
+            db.add(
+                GovernanceRule(
+                    field_name="DISPR",
+                    scope_mtart=None,
+                    scope_plant_code=rule.plant_code,
+                    scope_stage_code=rule.stage_code,
+                    expected_value=None,
+                    allowed_values=rule.expected_mrp_profile,
+                    severity="error",
+                )
+            )
+    db.add(SchemaMeta(key=key, value="applied"))
+
+
 def bootstrap() -> None:
     """Create tables and seed data. Safe to call on every startup."""
     Base.metadata.create_all(bind=engine)
@@ -230,6 +302,7 @@ def bootstrap() -> None:
         # Phase 1: schema migrations (ALTER TABLE etc.) that only touch
         # structural columns. Safe to run before reference data exists.
         _migration_add_v2_columns_structural(db)
+        _migration_add_governance_columns(db)
         db.flush()
 
         # Phase 2: seed reference data.
@@ -240,9 +313,12 @@ def bootstrap() -> None:
         _seed_mrp_rules(db)
         db.flush()
         _seed_tags(db)
+        _seed_governance_rules(db)
+        db.flush()
         _ensure_admin(db)
         db.flush()
 
         # Phase 3: data-dependent migrations (need stages/etc. to exist).
         _migration_v2_data_seed(db)
         _migration_drop_new_active_mrp_rules(db)
+        _migrate_mrp_rules_into_governance_rules(db)

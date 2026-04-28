@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Extraction Runs{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Extraction Runs</h1>
+  <form method="post" action="/governance/run-now">
+    <button type="submit" class="btn btn-primary">Run extraction now</button>
+  </form>
+</div>
+
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr><th>ID</th><th>Source</th><th>Status</th><th>MARA</th><th>MARC</th><th>Changes</th><th>Started</th><th>Duration</th><th>Error</th></tr>
+    </thead>
+    <tbody>
+      {% for r in runs %}
+      {% set duration = ((r.finished_at - r.started_at).total_seconds() | int) if r.finished_at else None %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.source }}</td>
+        <td>
+          {% if r.status == 'success' %}
+            <span class="badge badge-green">success</span>
+          {% elif r.status == 'error' %}
+            <span class="badge badge-red">error</span>
+          {% else %}
+            <span class="badge badge-grey">{{ r.status }}</span>
+          {% endif %}
+        </td>
+        <td>{{ r.mara_count }}</td>
+        <td>{{ r.marc_count }}</td>
+        <td>{{ r.change_count }}</td>
+        <td style="color:#64748b;font-size:.8rem;">{{ r.started_at.strftime('%Y-%m-%d %H:%M') if r.started_at else '' }}</td>
+        <td style="color:#64748b;font-size:.8rem;">{% if duration is not none %}{{ duration }}s{% endif %}</td>
+        <td style="color:#ef4444;font-size:.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="{{ r.error_text or '' }}">{{ r.error_text or '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:2rem;">No extraction runs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

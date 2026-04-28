@@ -215,6 +215,7 @@ class Snapshot(Base):
     filename: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="upload")
 
     uploader: Mapped[User] = relationship("User")
 
@@ -294,4 +295,166 @@ class ProductTag(Base):
     )
     created_by_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("user.id"), nullable=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# SAP governance: MARA / MARC canonical state
+# ---------------------------------------------------------------------------
+
+
+class Material(Base):
+    """MARA subset — one row per matnr."""
+
+    __tablename__ = "material"
+
+    matnr: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mtart: Mapped[str] = mapped_column(String(8), nullable=False, default="")
+    mbrsh: Mapped[str] = mapped_column(String(8), nullable=False, default="")
+    maktx: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    meins: Mapped[str] = mapped_column(String(8), nullable=False, default="")
+    matkl: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    ersda: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    laeda: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+
+
+class Marc(Base):
+    """Governance row per (matnr, werks) — tracks ~20 MARC fields."""
+
+    __tablename__ = "marc"
+
+    matnr: Mapped[str] = mapped_column(String(64), ForeignKey("material.matnr"), primary_key=True)
+    werks: Mapped[str] = mapped_column(String(16), ForeignKey("plant.plant_code"), primary_key=True)
+
+    # The tracked governance fields (all nullable — SAP may not populate every field)
+    mmsta: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)   # plant-specific material status
+    dispr: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)   # MRP profile
+    dismm: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)    # MRP type
+    dispo: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)    # MRP controller
+    beskz: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)    # Procurement type
+    sobsl: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)    # Special procurement
+    ekgrp: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)    # Purchasing group
+    disgr: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)    # MRP group
+    eisbe: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)   # Safety stock
+    minbe: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)   # Reorder point
+    losfx: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)   # Fixed lot size
+    plifz: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)    # Planned delivery time
+    webaz: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)    # GR processing time
+    lgpro: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)   # Issue storage location
+    lgfsb: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)   # External procurement SL
+    fhori: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)    # Scheduling margin key
+    schgt: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)    # Bulk material flag
+    perkz: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)    # Period indicator
+    mtvfp: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)    # Availability check
+    strgr: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)    # Strategy group
+
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+
+    material: Mapped["Material"] = relationship("Material")
+
+
+class MarcChange(Base):
+    """Field-level audit log — one row per changed field per extraction run."""
+
+    __tablename__ = "marc_change"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    matnr: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    werks: Mapped[str] = mapped_column(String(16), nullable=False)
+    field_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    old_value: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    new_value: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    extraction_run_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("extraction_run.id"), nullable=True, index=True
+    )
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_marc_change_matnr_werks", "matnr", "werks"),
+    )
+
+
+class ExtractionRun(Base):
+    """Record of one SAP OData extraction (or upload-triggered run)."""
+
+    __tablename__ = "extraction_run"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="odata")
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    mara_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    marc_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    change_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class GovernanceRule(Base):
+    """Configurable validation rule for a single MARC field.
+
+    Specificity: scope_mtart + scope_plant_code + scope_stage_code is most specific;
+    global (all NULL) is least specific. Most-specific matching rule wins.
+    """
+
+    __tablename__ = "governance_rule"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    field_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope_mtart: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+    scope_plant_code: Mapped[Optional[str]] = mapped_column(
+        String(16), ForeignKey("plant.plant_code"), nullable=True
+    )
+    scope_stage_code: Mapped[Optional[str]] = mapped_column(
+        String(16), ForeignKey("lifecycle_stage.code"), nullable=True
+    )
+    expected_value: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    allowed_values: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # CSV
+    severity: Mapped[str] = mapped_column(String(8), nullable=False, default="error")
+
+    __table_args__ = (
+        Index("ix_governance_rule_field", "field_name"),
+    )
+
+
+class GovernanceViolation(Base):
+    """One row per currently-violating (matnr, werks, field_name) tuple."""
+
+    __tablename__ = "governance_violation"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    matnr: Mapped[str] = mapped_column(String(64), nullable=False)
+    werks: Mapped[str] = mapped_column(String(16), nullable=False)
+    field_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    rule_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("governance_rule.id"), nullable=False
+    )
+    actual_value: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    expected_value: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    rule: Mapped["GovernanceRule"] = relationship("GovernanceRule")
+
+    __table_args__ = (
+        UniqueConstraint("matnr", "werks", "field_name", name="uq_gov_violation_key"),
+        Index("ix_gov_violation_matnr", "matnr"),
     )

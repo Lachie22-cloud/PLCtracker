@@ -6,7 +6,6 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..auth import (
-    get_current_user,
     issue_session_token,
     verify_password,
 )
@@ -70,10 +69,3 @@ async def logout():
     return resp
 
 
-@router.get("/")
-async def root(
-    request: Request, user: User | None = Depends(get_current_user)
-):
-    if user is None:
-        return RedirectResponse(url="/login", status_code=303)
-    return RedirectResponse(url="/board", status_code=303)

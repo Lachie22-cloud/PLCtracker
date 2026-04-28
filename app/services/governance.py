@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import GovernanceRule, GovernanceViolation, Marc, Material, MaterialPreset, PresetField
+from ..models import GovernanceRule, GovernanceViolation, Marc, Material, MaterialPreset
 
 
 # ---------------------------------------------------------------------------

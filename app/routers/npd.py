@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 

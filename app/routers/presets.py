@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse

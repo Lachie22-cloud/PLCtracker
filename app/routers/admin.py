@@ -1,8 +1,13 @@
 """Admin: users, stages, plants, MRP rules, snapshot history."""
 from __future__ import annotations
 
+import logging
+import traceback
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -265,9 +270,15 @@ async def load_demo(
     db: Session = Depends(get_db),
     user: User = Depends(require_admin),
 ):
-    result = seed_demo_data(db)
-    db.commit()
-    msg = result["message"]
+    try:
+        result = seed_demo_data(db)
+        db.commit()
+        msg = result["message"]
+    except Exception as exc:
+        db.rollback()
+        tb = traceback.format_exc()
+        logger.error("Demo seed failed:\n%s", tb)
+        msg = f"Error: {exc} — check server logs for full traceback."
     return RedirectResponse(url=f"/admin?demo_msg={msg}", status_code=303)
 
 

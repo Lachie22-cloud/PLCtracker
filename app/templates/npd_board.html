@@ -8,52 +8,51 @@
 
 {% block content %}
 {% set columns = [
-  ('in_progress', 'In Progress', '#3b82f6'),
-  ('on_hold', 'On Hold', '#f59e0b'),
-  ('completed', 'Completed', '#22c55e'),
-  ('cancelled', 'Cancelled', '#94a3b8'),
+  ('in_progress', 'In Progress', 'info'),
+  ('on_hold', 'On Hold', 'warning'),
+  ('completed', 'Completed', 'ok'),
+  ('cancelled', 'Cancelled', 'n_a'),
 ] %}
 
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;align-items:start;">
-  {% for status_key, status_label, color in columns %}
-  <div>
-    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;padding:.5rem .75rem;background:#f8fafc;border-radius:8px;border-top:3px solid {{ color }};">
-      <strong style="font-size:.9rem;">{{ status_label }}</strong>
-      <span class="chip" style="font-size:.72rem;margin-left:auto;">{{ by_status.get(status_key, [])|length }}</span>
+<div class="board">
+  {% for status_key, status_label, dot_mod in columns %}
+  <div class="kanban-col">
+    <div class="kanban-col__head">
+      <span class="kanban-col__dot kanban-col__dot--{{ dot_mod }}"></span>
+      <span class="kanban-col__title">{{ status_label }}</span>
+      <span class="kanban-col__count">{{ by_status.get(status_key, [])|length }}</span>
     </div>
-    <div style="display:flex;flex-direction:column;gap:.5rem;">
+    <div class="kanban-col__body">
       {% for req in by_status.get(status_key, []) %}
       {% set total_steps = req.steps | rejectattr('status', 'equalto', 'n_a') | list | length %}
       {% set done_steps = req.steps | selectattr('status', 'equalto', 'completed') | list | length %}
       {% set days_open = req.created_at | days_since %}
-      <a href="/npd/{{ req.id }}" style="display:block;padding:.75rem;background:#fff;border:1px solid #e2e8f0;border-radius:8px;text-decoration:none;color:inherit;transition:box-shadow .15s;"
-         onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow=''">
-        <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem;">
-          <span class="mono" style="font-size:.82rem;font-weight:600;">{{ req.request_no }}</span>
-          <span style="margin-left:auto;font-size:.72rem;color:#94a3b8;">{{ days_open }}d</span>
+      <a href="/npd/{{ req.id }}" class="kanban-card">
+        <div class="kanban-card__head">
+          <span class="mono" style="font-weight:600;font-size:.82rem;">{{ req.request_no }}</span>
+          <span class="text-muted text-sm">{{ days_open }}d</span>
         </div>
         {% if req.bulk_sku or req.fg_sku %}
-          <div style="font-size:.78rem;color:#475569;margin-bottom:.3rem;font-family:monospace;">
-            {% if req.bulk_sku %}{{ req.bulk_sku }}{% endif %}
-            {% if req.bulk_sku and req.fg_sku %} / {% endif %}
-            {% if req.fg_sku %}{{ req.fg_sku }}{% endif %}
+          <div class="mono text-sm text-muted" style="margin-bottom:.3rem;">
+            {% if req.bulk_sku %}{{ req.bulk_sku }}{% endif %}{% if req.bulk_sku and req.fg_sku %} / {% endif %}{% if req.fg_sku %}{{ req.fg_sku }}{% endif %}
           </div>
         {% endif %}
-        <div style="font-size:.75rem;color:#64748b;margin-bottom:.4rem;">
+        <div class="text-sm text-muted" style="margin-bottom:.4rem;">
           {% for req_type, lbl in [('bulk_fg','Bulk+FG'),('fg_only','FG Only'),('bulk_only','Bulk Only')] %}
             {% if req.request_type == req_type %}{{ lbl }}{% endif %}
           {% endfor %}
         </div>
-        {# Progress bar #}
-        <div style="display:flex;align-items:center;gap:.35rem;">
-          <div style="flex:1;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-            <div style="height:100%;width:{{ ((done_steps / total_steps * 100) if total_steps else 0) | int }}%;background:{{ color }};border-radius:3px;"></div>
+        <div class="kanban-card__foot">
+          <div class="progress-cell" style="flex:1;">
+            <div class="progress-cell__bar">
+              <div class="progress-cell__fill" style="width:{{ ((done_steps / total_steps * 100) if total_steps else 0) | int }}%;"></div>
+            </div>
+            <span class="progress-cell__label">{{ done_steps }}/{{ total_steps }}</span>
           </div>
-          <span style="font-size:.7rem;color:#94a3b8;white-space:nowrap;">{{ done_steps }}/{{ total_steps }}</span>
         </div>
       </a>
       {% else %}
-        <div style="padding:1rem;text-align:center;color:#cbd5e1;font-size:.82rem;">Empty</div>
+        <div class="kanban-empty">Empty</div>
       {% endfor %}
     </div>
   </div>

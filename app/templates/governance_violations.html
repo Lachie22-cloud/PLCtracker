@@ -1,36 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Governance Violations{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1>Governance Violations</h1>
-  <span class="badge badge-red">{{ violations|length }} open</span>
+<div class="filter-wrap" style="margin-bottom:1rem;">
+  <form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+    <input type="text" name="field_name" value="{{ filter_field }}" placeholder="Field (e.g. DISPR)" class="input input-sm">
+    <input type="text" name="werks" value="{{ filter_werks }}" placeholder="Plant" class="input input-sm">
+    <select name="severity" class="input input-sm">
+      <option value="">All severities</option>
+      <option value="error" {% if filter_severity == 'error' %}selected{% endif %}>Error</option>
+      <option value="warning" {% if filter_severity == 'warning' %}selected{% endif %}>Warning</option>
+      <option value="info" {% if filter_severity == 'info' %}selected{% endif %}>Info</option>
+    </select>
+    <button type="submit" class="btn btn-sm">Filter</button>
+    <a href="/governance/violations" class="btn btn-sm btn-subtle">Clear</a>
+  </form>
 </div>
 
-<form method="get" class="filter-bar" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
-  <input type="text" name="field_name" value="{{ filter_field }}" placeholder="Field (e.g. DISPR)" class="input input-sm">
-  <input type="text" name="werks" value="{{ filter_werks }}" placeholder="Plant" class="input input-sm">
-  <select name="severity" class="input input-sm">
-    <option value="">All severities</option>
-    <option value="error" {% if filter_severity == 'error' %}selected{% endif %}>Error</option>
-    <option value="warning" {% if filter_severity == 'warning' %}selected{% endif %}>Warning</option>
-    <option value="info" {% if filter_severity == 'info' %}selected{% endif %}>Info</option>
-  </select>
-  <button type="submit" class="btn btn-sm">Filter</button>
-  <a href="/governance/violations" class="btn btn-sm btn-ghost">Clear</a>
-</form>
-
 {% if field_counts %}
-<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem;">
+<div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1rem;">
   {% for fn, cnt in field_counts.items() %}
-  <a href="?field_name={{ fn }}" style="display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .6rem;border-radius:9999px;background:#f1f5f9;font-size:.75rem;text-decoration:none;color:#334155;">
-    {{ fn }} <strong>{{ cnt }}</strong>
+  <a href="?field_name={{ fn }}" class="badge badge--info" style="text-decoration:none;cursor:pointer;">
+    {{ fn }} <strong style="margin-left:.25rem;">{{ cnt }}</strong>
   </a>
   {% endfor %}
 </div>
 {% endif %}
 
-<div class="table-wrap">
-  <table class="data-table">
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="tbl">
     <thead>
       <tr>
         <th>Material</th><th>Plant</th><th>Field</th>
@@ -40,20 +37,26 @@
     <tbody>
       {% for v in violations %}
       <tr>
-        <td><a href="/governance/material/{{ v.matnr }}/changes">{{ v.matnr }}</a></td>
+        <td><a href="/governance/material/{{ v.matnr }}/changes" class="mono">{{ v.matnr }}</a></td>
         <td>{{ v.werks }}</td>
         <td><strong>{{ v.field_name }}</strong></td>
-        <td style="font-family:monospace;">{{ v.actual_value or '—' }}</td>
-        <td style="font-family:monospace;">{{ v.expected_value or '—' }}</td>
+        <td class="mono">{{ v.actual_value or '—' }}</td>
+        <td class="mono">{{ v.expected_value or '—' }}</td>
         <td>
           {% set sev = v.rule.severity if v.rule else 'error' %}
-          <span class="badge {% if sev == 'error' %}badge-red{% elif sev == 'warning' %}badge-yellow{% else %}badge-grey{% endif %}">{{ sev }}</span>
+          {% if sev == 'error' %}
+            <span class="badge badge--critical">error</span>
+          {% elif sev == 'warning' %}
+            <span class="badge badge--warning">warning</span>
+          {% else %}
+            <span class="badge badge--info">info</span>
+          {% endif %}
         </td>
-        <td style="color:#64748b;font-size:.8rem;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ v.note }}">{{ v.note }}</td>
-        <td style="color:#64748b;font-size:.8rem;">{{ v.detected_at.strftime('%Y-%m-%d') if v.detected_at else '' }}</td>
+        <td class="text-muted text-sm" style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ v.note }}">{{ v.note }}</td>
+        <td class="text-muted text-sm">{{ v.detected_at.strftime('%Y-%m-%d') if v.detected_at else '' }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:2rem;">No open violations.</td></tr>
+      <tr><td colspan="8" class="text-muted text-sm" style="text-align:center;padding:2.5rem;">No open violations.</td></tr>
       {% endfor %}
     </tbody>
   </table>

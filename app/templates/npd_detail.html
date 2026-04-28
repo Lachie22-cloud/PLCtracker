@@ -3,7 +3,6 @@
 {% block title %}{{ npd_req.request_no }}{% endblock %}
 
 {% block breadcrumb %}
-  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
   <a href="/npd">NPD Pipeline</a>
   <span class="sep">{{ icon('chevron-right', 12) }}</span>
   <span class="mono">{{ npd_req.request_no }}</span>
@@ -14,9 +13,7 @@
 
 {% block content %}
 {% if msg %}
-  <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;color:#1d4ed8;font-size:.9rem;">
-    {{ icon('check', 14) }} {{ msg }}
-  </div>
+  <div class="callout callout--ok" style="margin-bottom:1rem;">{{ icon('check', 14) }} {{ msg }}</div>
 {% endif %}
 
 <div class="detail-grid" style="grid-template-columns:280px 1fr 300px;">
@@ -27,15 +24,17 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
         <div>
           <div class="mono" style="font-size:1.1rem;font-weight:600;">{{ npd_req.request_no }}</div>
-          {% if npd_req.status == 'in_progress' %}
-            <span class="chip" style="background:#eff6ff;border-color:#93c5fd;color:#1d4ed8;margin-top:.25rem;">in progress</span>
-          {% elif npd_req.status == 'completed' %}
-            <span class="chip chip--ok" style="margin-top:.25rem;">completed</span>
-          {% elif npd_req.status == 'on_hold' %}
-            <span class="chip chip--warn" style="margin-top:.25rem;">on hold</span>
-          {% elif npd_req.status == 'cancelled' %}
-            <span class="chip" style="background:#f8fafc;color:#94a3b8;margin-top:.25rem;">cancelled</span>
-          {% endif %}
+          <div style="margin-top:.35rem;">
+            {% if npd_req.status == 'in_progress' %}
+              <span class="badge badge--info">in progress</span>
+            {% elif npd_req.status == 'completed' %}
+              <span class="badge badge--ok">completed</span>
+            {% elif npd_req.status == 'on_hold' %}
+              <span class="badge badge--warning">on hold</span>
+            {% elif npd_req.status == 'cancelled' %}
+              <span class="badge">cancelled</span>
+            {% endif %}
+          </div>
         </div>
         <button type="button" @click="editing = !editing" class="btn btn-subtle btn-sm">{{ icon('settings', 14) }}</button>
       </div>
@@ -62,16 +61,16 @@
         </dl>
         {% if npd_req.warehouse_plants and npd_req.warehouse_plants != '[]' %}
           <div style="margin-top:.5rem;">
-            <div style="font-size:.75rem;color:#64748b;margin-bottom:.25rem;">Warehouse plants</div>
+            <div class="text-sm text-muted" style="margin-bottom:.25rem;">Warehouse plants</div>
             <div style="display:flex;flex-wrap:wrap;gap:.25rem;">
               {% for p in npd_req.warehouse_plants | from_json %}
-                <span class="chip" style="font-family:monospace;font-size:.75rem;">{{ p }}</span>
+                <span class="chip mono">{{ p }}</span>
               {% endfor %}
             </div>
           </div>
         {% endif %}
         {% if npd_req.notes %}
-          <div style="margin-top:.5rem;font-size:.82rem;color:#475569;">{{ npd_req.notes }}</div>
+          <div style="margin-top:.5rem;" class="text-sm text-muted">{{ npd_req.notes }}</div>
         {% endif %}
       </div>
 
@@ -107,8 +106,8 @@
               {% endfor %}
             </select>
           </label>
-          <label class="field">Bulk SKU <input type="text" name="bulk_sku" value="{{ npd_req.bulk_sku or '' }}" style="font-family:monospace;"></label>
-          <label class="field">FG SKU <input type="text" name="fg_sku" value="{{ npd_req.fg_sku or '' }}" style="font-family:monospace;"></label>
+          <label class="field">Bulk SKU <input type="text" name="bulk_sku" value="{{ npd_req.bulk_sku or '' }}" class="mono"></label>
+          <label class="field">FG SKU <input type="text" name="fg_sku" value="{{ npd_req.fg_sku or '' }}" class="mono"></label>
           <label class="field">Warehouse plants
             <textarea name="warehouse_plants" rows="2">{{ (npd_req.warehouse_plants | from_json) | join(', ') }}</textarea>
           </label>
@@ -126,108 +125,101 @@
   {# ======== CENTRE: Step tracker ======== #}
   <div>
     <div class="panel">
-      <h2 style="margin-bottom:1rem;">Steps</h2>
-      <div class="activity" style="gap:0;">
+      <div class="panel__title" style="margin-bottom:1rem;">Steps</div>
+      <div class="step-list">
         {% for step in npd_req.steps %}
         {% set step_def = step_defs.get(step.step_code) %}
         {% set is_na = step.status == 'n_a' %}
         {% set is_done = step.status == 'completed' %}
         {% set is_blocked = step.status == 'blocked' %}
         {% set is_inprog = step.status == 'in_progress' %}
-        <div x-data="{ open: false }" style="position:relative;">
-          {# Step row #}
-          <div class="activity__item" style="cursor:{% if not is_na %}pointer{% else %}default{% endif %}; opacity:{% if is_na %}0.45{% else %}1{% endif %};"
-               @click="{% if not is_na %}open = !open{% endif %}">
-            {# Status dot #}
+        <div x-data="{ open: false }" class="step {% if is_na %}step--na{% endif %}">
+          <div class="step__rail">
             {% if is_done %}
-              <span class="activity__dot activity__dot--done" style="background:#22c55e;color:#fff;">{{ icon('check', 10) }}</span>
+              <span class="step__dot step__dot--ok">{{ icon('check', 10) }}</span>
             {% elif is_blocked %}
-              <span class="activity__dot" style="background:#ef4444;color:#fff;">{{ icon('x', 10) }}</span>
+              <span class="step__dot step__dot--critical">{{ icon('x', 10) }}</span>
             {% elif is_inprog %}
-              <span class="activity__dot" style="background:#3b82f6;color:#fff;">{{ icon('arrow-right', 10) }}</span>
+              <span class="step__dot step__dot--info">{{ icon('arrow-right', 10) }}</span>
             {% elif is_na %}
-              <span class="activity__dot" style="background:#e2e8f0;color:#94a3b8;">—</span>
+              <span class="step__dot step__dot--n_a">—</span>
             {% else %}
-              <span class="activity__dot" style="background:#e2e8f0;color:#64748b;">{{ step.sort_order }}</span>
+              <span class="step__dot">{{ step.sort_order }}</span>
             {% endif %}
-
-            <div class="activity__body" style="flex:1;">
-              <div class="activity__head" style="display:flex;align-items:center;gap:.5rem;">
-                <strong style="{% if is_na %}color:#94a3b8;{% endif %}">
-                  {{ step_def.label if step_def else step.step_code }}
-                </strong>
-                {% if step_def and step_def.is_blocking and not is_na %}
-                  <span style="font-size:.7rem;color:#64748b;" title="Blocking step">{{ icon('alert-triangle', 10) }}</span>
-                {% endif %}
-                <span style="margin-left:auto;font-size:.75rem;">
-                  {% if is_na %}<span style="color:#94a3b8;">N/A</span>
-                  {% elif is_done %}<span style="color:#16a34a;">Done</span>
-                  {% elif is_blocked %}<span style="color:#dc2626;">Blocked</span>
-                  {% elif is_inprog %}<span style="color:#2563eb;">In Progress</span>
-                  {% else %}<span style="color:#64748b;">Not started</span>
-                  {% endif %}
-                </span>
-                {% if not is_na %}
-                  <span style="color:#94a3b8;">{{ icon('chevron-right', 12) }}</span>
-                {% endif %}
-              </div>
-              {% if is_done and step.completed_by %}
-                <div style="font-size:.75rem;color:#64748b;">
-                  Completed by {{ step.completed_by.name or step.completed_by.email }}
-                  on {{ step.completed_at.strftime('%Y-%m-%d') if step.completed_at else '' }}
-                </div>
-              {% endif %}
-              {% if step.notes %}
-                <div style="font-size:.8rem;color:#475569;margin-top:.15rem;">{{ step.notes }}</div>
-              {% endif %}
-              {% if step.batch_number %}
-                <div style="font-size:.75rem;color:#64748b;">Batch: <span class="mono">{{ step.batch_number }}</span></div>
-              {% endif %}
-              {% if step.scheduled_date %}
-                <div style="font-size:.75rem;color:#64748b;">Scheduled: {{ step.scheduled_date }}</div>
-              {% endif %}
-            </div>
           </div>
-
-          {# Expand panel #}
-          <div x-show="open" x-cloak
-               style="margin-left:2.5rem;padding:.75rem;background:#f8fafc;border-radius:8px;margin-bottom:.5rem;">
-            {% if step_def and step_def.description %}
-              <p style="font-size:.82rem;color:#475569;margin:0 0 .75rem;">{{ step_def.description }}</p>
+          <div class="step__body">
+            <div class="step__head" style="cursor:{% if not is_na %}pointer{% else %}default{% endif %};"
+                 @click="{% if not is_na %}open = !open{% endif %}">
+              <strong>{{ step_def.label if step_def else step.step_code }}</strong>
+              {% if step_def and step_def.is_blocking and not is_na %}
+                <span class="text-muted" title="Blocking step">{{ icon('alert-triangle', 10) }}</span>
+              {% endif %}
+              <span style="margin-left:auto;" class="text-sm">
+                {% if is_na %}<span class="text-muted">N/A</span>
+                {% elif is_done %}<span style="color:var(--green,#16a34a);">Done</span>
+                {% elif is_blocked %}<span style="color:var(--red,#dc2626);">Blocked</span>
+                {% elif is_inprog %}<span style="color:var(--accent);">In Progress</span>
+                {% else %}<span class="text-muted">Not started</span>
+                {% endif %}
+              </span>
+              {% if not is_na %}<span class="text-muted">{{ icon('chevron-right', 12) }}</span>{% endif %}
+            </div>
+            {% if is_done and step.completed_by %}
+              <div class="text-sm text-muted">
+                Completed by {{ step.completed_by.name or step.completed_by.email }}
+                on {{ step.completed_at.strftime('%Y-%m-%d') if step.completed_at else '' }}
+              </div>
             {% endif %}
-            <form method="post" action="/npd/{{ npd_req.id }}/step/{{ step.step_code }}" class="stack" style="gap:.5rem;">
-              <div class="row">
-                <label class="field" style="flex:1;">
-                  Status
-                  <select name="status">
-                    <option value="not_started" {% if step.status == 'not_started' %}selected{% endif %}>Not Started</option>
-                    <option value="in_progress" {% if step.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                    <option value="completed" {% if step.status == 'completed' %}selected{% endif %}>Completed</option>
-                    <option value="blocked" {% if step.status == 'blocked' %}selected{% endif %}>Blocked</option>
-                  </select>
+            {% if step.notes %}
+              <div class="text-sm text-muted" style="margin-top:.15rem;">{{ step.notes }}</div>
+            {% endif %}
+            {% if step.batch_number %}
+              <div class="text-sm text-muted">Batch: <span class="mono">{{ step.batch_number }}</span></div>
+            {% endif %}
+            {% if step.scheduled_date %}
+              <div class="text-sm text-muted">Scheduled: {{ step.scheduled_date }}</div>
+            {% endif %}
+
+            {# Expand panel #}
+            <div x-show="open" x-cloak
+                 style="margin-top:.5rem;padding:.75rem;background:var(--panel-2,var(--panel));border:1px solid var(--border);border-radius:8px;">
+              {% if step_def and step_def.description %}
+                <p class="text-sm text-muted" style="margin:0 0 .75rem;">{{ step_def.description }}</p>
+              {% endif %}
+              <form method="post" action="/npd/{{ npd_req.id }}/step/{{ step.step_code }}" class="stack" style="gap:.5rem;">
+                <div class="row">
+                  <label class="field" style="flex:1;">
+                    Status
+                    <select name="status">
+                      <option value="not_started" {% if step.status == 'not_started' %}selected{% endif %}>Not Started</option>
+                      <option value="in_progress" {% if step.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                      <option value="completed" {% if step.status == 'completed' %}selected{% endif %}>Completed</option>
+                      <option value="blocked" {% if step.status == 'blocked' %}selected{% endif %}>Blocked</option>
+                    </select>
+                  </label>
+                  {% if step.step_code == 'batch_raised' %}
+                    <label class="field" style="flex:1;">
+                      Batch number
+                      <input type="text" name="batch_number" value="{{ step.batch_number or '' }}" class="mono" placeholder="e.g. 1000001234">
+                    </label>
+                  {% endif %}
+                  {% if step.step_code == 'batch_scheduled' %}
+                    <label class="field" style="flex:1;">
+                      Scheduled date
+                      <input type="date" name="scheduled_date" value="{{ step.scheduled_date or '' }}">
+                    </label>
+                  {% endif %}
+                </div>
+                <label class="field">
+                  Notes
+                  <textarea name="notes" rows="2" placeholder="Optional notes…">{{ step.notes }}</textarea>
                 </label>
-                {% if step.step_code == 'batch_raised' %}
-                  <label class="field" style="flex:1;">
-                    Batch number
-                    <input type="text" name="batch_number" value="{{ step.batch_number or '' }}" class="mono" placeholder="e.g. 1000001234">
-                  </label>
-                {% endif %}
-                {% if step.step_code == 'batch_scheduled' %}
-                  <label class="field" style="flex:1;">
-                    Scheduled date
-                    <input type="date" name="scheduled_date" value="{{ step.scheduled_date or '' }}">
-                  </label>
-                {% endif %}
-              </div>
-              <label class="field">
-                Notes
-                <textarea name="notes" rows="2" placeholder="Optional notes…">{{ step.notes }}</textarea>
-              </label>
-              <div class="row-end">
-                <button type="button" @click="open = false" class="btn btn-subtle btn-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary btn-sm">Save step</button>
-              </div>
-            </form>
+                <div class="row-end">
+                  <button type="button" @click="open = false" class="btn btn-subtle btn-sm">Cancel</button>
+                  <button type="submit" class="btn btn-primary btn-sm">Save step</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
         {% else %}
@@ -240,7 +232,7 @@
   {# ======== RIGHT: Comments + Email ======== #}
   <div>
     <div class="panel">
-      <h2>Comments</h2>
+      <div class="panel__title">Comments</div>
       <form method="post" action="/npd/{{ npd_req.id }}/comment" class="stack" style="margin:8px 0 12px;">
         <textarea name="body" placeholder="Add a note or update…" required></textarea>
         <div class="row-end">
@@ -267,7 +259,7 @@
     </div>
 
     <div class="panel">
-      <h2>Paste email</h2>
+      <div class="panel__title">Paste email</div>
       <p class="text-sm text-muted" style="margin:.25rem 0 .75rem;">Paste email text to auto-detect and apply step updates.</p>
       <form method="post" action="/npd/{{ npd_req.id }}/paste-email" class="stack">
         <textarea name="email_text" rows="5" placeholder="Paste email body here…" required></textarea>
@@ -279,23 +271,23 @@
 
     {% if email_events %}
     <div class="panel">
-      <h2>Email events</h2>
+      <div class="panel__title">Email events</div>
       <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem;">
         {% for ev in email_events %}
-          <div style="padding:.5rem;background:#f8fafc;border-radius:6px;font-size:.8rem;">
-            <div style="display:flex;justify-content:space-between;">
-              <span style="color:#64748b;">{{ ev.received_at.strftime('%Y-%m-%d %H:%M') }}</span>
+          <div style="padding:.5rem;background:var(--panel-2,var(--panel));border:1px solid var(--border);border-radius:6px;" class="text-sm">
+            <div style="display:flex;justify-content:space-between;margin-bottom:.25rem;">
+              <span class="text-muted">{{ ev.received_at.strftime('%Y-%m-%d %H:%M') }}</span>
               {% if ev.applied %}
-                <span class="chip chip--ok" style="font-size:.7rem;">applied</span>
+                <span class="badge badge--ok" style="font-size:.7rem;">applied</span>
               {% else %}
-                <span class="chip" style="font-size:.7rem;color:#94a3b8;">not applied</span>
+                <span class="badge" style="font-size:.7rem;">not applied</span>
               {% endif %}
             </div>
             {% if ev.matched_step_code %}
-              <div style="margin-top:.25rem;">Step: <strong>{{ ev.matched_step_code }}</strong> → {{ ev.matched_status }}</div>
+              <div>Step: <strong>{{ ev.matched_step_code }}</strong> → {{ ev.matched_status }}</div>
             {% endif %}
             {% if ev.body_snippet %}
-              <div style="color:#64748b;margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ ev.body_snippet }}">
+              <div class="text-muted" style="margin-top:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ ev.body_snippet }}">
                 {{ ev.body_snippet[:100] }}
               </div>
             {% endif %}

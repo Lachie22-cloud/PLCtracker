@@ -2,13 +2,7 @@
 {% from "_icons.html" import icon %}
 {% block title %}Dashboard{% endblock %}
 
-{% block breadcrumb %}
-  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
-  <span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>Dashboard</span>
-{% endblock %}
-
-{% block header_title %}<h1>Dashboard</h1>{% endblock %}
-{% block header_subtitle %}<div class="subtitle">{{ total_products }} products across the current filters.</div>{% endblock %}
+{% block header_subtitle %}<div class="page__sub text-muted">{{ total_products }} products across the current filters.</div>{% endblock %}
 {% block header_actions %}
   <a href="/export.csv" class="btn btn-secondary">{{ icon('download', 14) }} Export CSV</a>
 {% endblock %}
@@ -23,18 +17,17 @@
     {% with show_stage=False, action='/dashboard' %}{% include "_filters.html" %}{% endwith %}
   </div>
 
-  {# ---------- Products per stage (horizontal bars) & Aging doughnut ---------- #}
   <div class="dash-grid">
     <div class="panel">
-      <h2>Products per stage</h2>
+      <div class="panel__title">Products per stage</div>
       {% set max_count = (counts.values()|list|max) if counts else 0 %}
-      <div class="h-bars" style="margin-top: 12px;">
+      <div class="h-bars" style="margin-top:12px;">
         {% for s in all_stages %}
           {% set c = counts.get(s.code, 0) %}
           {% set pct = (c / max_count * 100) if max_count else 0 %}
           <div class="h-bar">
-            <span class="label"><span class="pip" style="background: {{ s.color }};"></span>{{ s.code }}</span>
-            <div class="bar"><div class="fill" style="width: {{ pct }}%; --fill: {{ s.color }};"></div></div>
+            <span class="label"><span class="pip" style="background:{{ s.color }};"></span>{{ s.code }}</span>
+            <div class="bar"><div class="fill" style="width:{{ pct }}%;--fill:{{ s.color }};"></div></div>
             <span class="count">{{ c }}</span>
           </div>
         {% endfor %}
@@ -42,14 +35,14 @@
     </div>
 
     <div class="panel">
-      <h2>Aging — days in current stage</h2>
-      <div class="chart-box" style="margin-top: 12px;"><canvas id="agingChart"></canvas></div>
+      <div class="panel__title">Aging — days in current stage</div>
+      <div class="chart-box" style="margin-top:12px;"><canvas id="agingChart"></canvas></div>
     </div>
   </div>
 
   <div class="panel">
-    <h2>Recent stage transitions</h2>
-    <table class="data-table">
+    <div class="panel__title">Recent stage transitions</div>
+    <table class="tbl" style="margin-top:.75rem;">
       <thead><tr><th>Product</th><th>From</th><th>To</th><th>When</th></tr></thead>
       <tbody>
         {% for t in transitions %}
@@ -77,12 +70,22 @@
             data: Object.values(aging),
             backgroundColor: ['#10b981', '#f59e0b', '#f97316', '#dc2626'],
             borderWidth: 0,
+            borderColor: 'transparent',
           }],
         },
         options: {
           cutout: '62%',
           plugins: {
-            legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, usePointStyle: true, font: { size: 12 } } },
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 10,
+                padding: 12,
+                usePointStyle: true,
+                font: { size: 12 },
+                color: 'rgba(255,255,255,0.6)',
+              },
+            },
           },
         },
       });

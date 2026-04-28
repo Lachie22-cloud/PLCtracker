@@ -762,6 +762,7 @@ button, .btn {
 }
 .callout--warning { border-color: var(--warning-border); background: var(--warning-soft); color: var(--warning); }
 .callout--info { border-color: var(--info-border); background: var(--info-soft); color: var(--info); }
+.callout--ok   { border-color: var(--ok-border); background: var(--ok-soft); color: var(--ok); }
 .callout .icon { flex-shrink: 0; margin-top: 1px; }
 .callout strong { color: inherit; font-weight: 600; }
 
@@ -1305,7 +1306,8 @@ button, .btn {
   height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2));
   border-radius: 999px; transition: width 0.3s;
 }
-.progress-cell__text { font-size: 11px; color: var(--muted); min-width: 32px; text-align: right; }
+.progress-cell__text,
+.progress-cell__label { font-size: 11px; color: var(--muted); min-width: 32px; text-align: right; }
 
 .step-chip {
   display: inline-flex; align-items: center;
@@ -1413,6 +1415,7 @@ button, .btn {
   padding-left: 32px;
   display: flex;
 }
+.step--na { opacity: 0.45; pointer-events: none; }
 .step__rail {
   position: absolute;
   left: 12px;
@@ -1560,6 +1563,7 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 .kanban-col__dot--warning { background: var(--warning); }
 .kanban-col__dot--ok { background: var(--ok); }
 .kanban-col__dot--muted { background: var(--muted-2); }
+.kanban-col__dot--n_a   { background: var(--muted-2); }
 .kanban-col__count {
   margin-left: auto;
   font-family: "JetBrains Mono", monospace;

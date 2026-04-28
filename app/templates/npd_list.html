@@ -9,10 +9,7 @@
 {% endblock %}
 
 {% block content %}
-{# Flash message #}
-
-{# Filter bar #}
-<form method="get" class="filter-bar" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+<form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
   <select name="status" class="input input-sm">
     <option value="" {% if not filter_status %}selected{% endif %}>All statuses</option>
     <option value="in_progress" {% if filter_status == 'in_progress' %}selected{% endif %}>In Progress</option>
@@ -33,25 +30,19 @@
     {% endfor %}
   </select>
   <button type="submit" class="btn btn-sm">Filter</button>
-  <a href="/npd" class="btn btn-sm btn-ghost">Clear</a>
+  <a href="/npd" class="btn btn-sm btn-subtle">Clear</a>
   <div class="spacer"></div>
   <a href="/npd/board" class="btn btn-secondary btn-sm">{{ icon('kanban', 14) }} Board view</a>
 </form>
 
-<div class="table-wrap">
-  <table class="data-table">
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="tbl">
     <thead>
       <tr>
-        <th>Request No</th>
-        <th>Type</th>
-        <th>Division</th>
-        <th>Bulk SKU</th>
-        <th>FG SKU</th>
-        <th>Progress</th>
-        <th>Next step</th>
-        <th>Target</th>
-        <th>Days open</th>
-        <th>Status</th>
+        <th>Request No</th><th>Type</th><th>Division</th>
+        <th>Bulk SKU</th><th>FG SKU</th>
+        <th>Progress</th><th>Next step</th>
+        <th>Target</th><th>Days open</th><th>Status</th>
       </tr>
     </thead>
     <tbody>
@@ -61,52 +52,54 @@
       {% set next_step = req.steps | rejectattr('status', 'equalto', 'completed') | rejectattr('status', 'equalto', 'n_a') | list | first %}
       {% set days_open = req.created_at | days_since %}
       <tr>
-        <td><a href="/npd/{{ req.id }}" class="mono" style="font-weight:500;">{{ req.request_no }}</a></td>
+        <td><a href="/npd/{{ req.id }}" class="mono" style="font-weight:600;">{{ req.request_no }}</a></td>
         <td>
-          {% for val, lbl in request_types %}{% if val == req.request_type %}<span class="chip" style="font-size:.75rem;">{{ lbl }}</span>{% endif %}{% endfor %}
+          {% for val, lbl in request_types %}{% if val == req.request_type %}<span class="chip">{{ lbl }}</span>{% endif %}{% endfor %}
         </td>
         <td>
-          {% for div in divisions %}{% if div.code == req.division_code %}<span class="chip chip--factory" style="font-size:.75rem;">{{ div.label }}</span>{% endif %}{% endfor %}
+          {% for div in divisions %}{% if div.code == req.division_code %}<span class="chip chip--factory">{{ div.label }}</span>{% endif %}{% endfor %}
         </td>
         <td class="mono">{{ req.bulk_sku or '—' }}</td>
         <td class="mono">{{ req.fg_sku or '—' }}</td>
         <td>
-          <div style="display:flex;align-items:center;gap:.4rem;">
-            <div style="width:80px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-              <div style="height:100%;width:{{ ((done_steps / total_steps * 100) if total_steps else 0) | int }}%;background:#22c55e;border-radius:3px;"></div>
+          <div class="progress-cell">
+            <div class="progress-cell__bar">
+              <div class="progress-cell__fill" style="width:{{ ((done_steps / total_steps * 100) if total_steps else 0) | int }}%;"></div>
             </div>
-            <span class="text-sm text-muted">{{ done_steps }}/{{ total_steps }}</span>
+            <span class="progress-cell__label">{{ done_steps }}/{{ total_steps }}</span>
           </div>
         </td>
-        <td>
+        <td class="text-sm">
           {% if next_step %}
-            <span style="font-size:.8rem;">
-              {% for sd in step_defs %}{% if sd.step_code == next_step.step_code %}{{ sd.label }}{% endif %}{% endfor %}
-            </span>
+            {% for sd in step_defs %}{% if sd.step_code == next_step.step_code %}{{ sd.label }}{% endif %}{% endfor %}
           {% else %}
-            <span class="text-muted text-sm">—</span>
+            <span class="text-muted">—</span>
           {% endif %}
         </td>
         <td class="text-sm">{{ req.target_date.strftime('%Y-%m-%d') if req.target_date else '—' }}</td>
         <td>
-          <span class="chip" style="font-size:.75rem;{% if days_open > 30 %}background:#fef2f2;border-color:#fca5a5;color:#dc2626;{% endif %}">{{ days_open }}d</span>
+          {% if days_open > 30 %}
+            <span class="badge badge--critical">{{ days_open }}d</span>
+          {% else %}
+            <span class="chip">{{ days_open }}d</span>
+          {% endif %}
         </td>
         <td>
           {% if req.status == 'in_progress' %}
-            <span class="chip" style="background:#eff6ff;border-color:#93c5fd;color:#1d4ed8;">in progress</span>
+            <span class="badge badge--info">in progress</span>
           {% elif req.status == 'completed' %}
-            <span class="chip chip--ok">completed</span>
+            <span class="badge badge--ok">completed</span>
           {% elif req.status == 'on_hold' %}
-            <span class="chip chip--warn">on hold</span>
+            <span class="badge badge--warning">on hold</span>
           {% elif req.status == 'cancelled' %}
-            <span class="chip" style="background:#f8fafc;color:#94a3b8;">cancelled</span>
+            <span class="badge">cancelled</span>
           {% else %}
-            <span class="chip">{{ req.status }}</span>
+            <span class="badge">{{ req.status }}</span>
           {% endif %}
         </td>
       </tr>
       {% else %}
-        <tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:3rem;">No NPD requests yet.</td></tr>
+        <tr><td colspan="10" class="text-muted text-sm" style="text-align:center;padding:3rem;">No NPD requests yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -115,12 +108,12 @@
 {# New Request Modal #}
 <div x-data="{ open: false }" @open-new-npd.window="open = true">
   <div x-show="open" x-cloak
-       style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;"
+       style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;"
        @click.self="open = false">
-    <div style="background:#fff;border-radius:12px;padding:2rem;width:min(560px,95vw);max-height:90vh;overflow-y:auto;">
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:2rem;width:min(560px,95vw);max-height:90vh;overflow-y:auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
         <h2 style="margin:0;">New NPD Request</h2>
-        <button type="button" @click="open = false" style="background:none;border:none;cursor:pointer;">{{ icon('x', 18) }}</button>
+        <button type="button" @click="open = false" class="btn btn-subtle btn-icon">{{ icon('x', 18) }}</button>
       </div>
       <form method="post" action="/npd" class="stack">
         <div class="row">
@@ -152,11 +145,11 @@
         <div class="row">
           <label class="field" style="flex:1;">
             Bulk SKU
-            <input type="text" name="bulk_sku" placeholder="e.g. 123456" style="font-family:monospace;">
+            <input type="text" name="bulk_sku" placeholder="e.g. 123456" class="mono">
           </label>
           <label class="field" style="flex:1;">
             FG SKU
-            <input type="text" name="fg_sku" placeholder="e.g. 789012" style="font-family:monospace;">
+            <input type="text" name="fg_sku" placeholder="e.g. 789012" class="mono">
           </label>
         </div>
         <label class="field">

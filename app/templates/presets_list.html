@@ -9,48 +9,48 @@
 {% endblock %}
 
 {% block content %}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;">
+<div class="preset-grid">
   {% for preset in presets %}
-  <div class="panel" style="display:flex;flex-direction:column;gap:.75rem;">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;">
+  <div class="preset-card">
+    <div class="preset-card__head">
       <div>
-        <div style="font-size:1.1rem;font-weight:600;">{{ preset.label }}</div>
-        <div style="font-size:.75rem;color:#64748b;font-family:monospace;">{{ preset.preset_code }}</div>
+        <div class="preset-card__title">{{ preset.label }}</div>
+        <div class="mono text-sm text-muted">{{ preset.preset_code }}</div>
       </div>
-      <span style="font-size:.7rem;color:#94a3b8;white-space:nowrap;">order {{ preset.display_order }}</span>
+      <span class="text-sm text-muted" style="white-space:nowrap;">order {{ preset.display_order }}</span>
     </div>
 
     {% if preset.description %}
-      <p style="margin:0;font-size:.85rem;color:#475569;">{{ preset.description }}</p>
+      <p class="preset-card__desc">{{ preset.description }}</p>
     {% endif %}
 
-    {# Assigned plants #}
-    <div style="display:flex;flex-wrap:wrap;gap:.3rem;">
+    <div class="preset-card__plants">
       {% for plant in preset.plants %}
         <span class="chip">{{ plant.plant_code }}</span>
       {% else %}
-        <span style="font-size:.8rem;color:#94a3b8;">No plants assigned</span>
+        <span class="text-sm text-muted">No plants assigned</span>
       {% endfor %}
     </div>
 
-    {# Field counts #}
     {% set critical_fields = preset.fields | selectattr('is_critical') | list %}
     {% set guidance_fields = preset.fields | rejectattr('is_critical') | list %}
-    <div style="display:flex;gap:.75rem;font-size:.8rem;color:#64748b;">
-      <span>{{ critical_fields|length }} critical field{{ 's' if critical_fields|length != 1 else '' }}</span>
+    <div class="preset-card__stats">
+      <span class="preset-stat">
+        <strong>{{ critical_fields|length }}</strong> critical field{{ 's' if critical_fields|length != 1 else '' }}
+      </span>
       {% if guidance_fields %}
-        <span>· {{ guidance_fields|length }} guidance</span>
+        <span class="preset-stat text-muted">· {{ guidance_fields|length }} guidance</span>
       {% endif %}
     </div>
 
     {% if user.role == 'admin' %}
-      <div style="margin-top:auto;">
+      <div style="margin-top:auto;padding-top:.75rem;">
         <a href="/presets/{{ preset.preset_code }}/edit" class="btn btn-secondary btn-sm">{{ icon('settings', 14) }} Edit</a>
       </div>
     {% endif %}
   </div>
   {% else %}
-    <div class="panel" style="text-align:center;color:#94a3b8;padding:3rem 1rem;">
+    <div class="panel" style="text-align:center;color:var(--muted);padding:3rem 1rem;grid-column:1/-1;">
       No presets yet.
       {% if user.role == 'admin' %}
         <a href="/presets/new" class="btn btn-primary" style="display:block;width:fit-content;margin:.75rem auto 0;">Create first preset</a>

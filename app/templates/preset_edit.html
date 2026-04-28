@@ -3,7 +3,6 @@
 {% block title %}{% if preset %}Edit {{ preset.label }}{% else %}New Preset{% endif %}{% endblock %}
 
 {% block breadcrumb %}
-  <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
   <a href="/presets">Presets</a>
   <span class="sep">{{ icon('chevron-right', 12) }}</span>
   <span>{% if preset %}{{ preset.label }}{% else %}New{% endif %}</span>
@@ -14,7 +13,7 @@
   {# ---- Left column: metadata ---- #}
   <div>
     <div class="panel">
-      <h2 style="margin-bottom:1rem;">Preset details</h2>
+      <div class="panel__title" style="margin-bottom:1rem;">Preset details</div>
       <form method="post" action="{{ '/presets/' + preset.preset_code + '/edit' if preset else '/presets/new' }}" class="stack">
         {% if not preset %}
           <label class="field">Code (slug)
@@ -40,22 +39,22 @@
     {% if preset %}
     {# ---- Fields builder ---- #}
     <div class="panel">
-      <h2 style="margin-bottom:1rem;">Critical fields</h2>
+      <div class="panel__title" style="margin-bottom:1rem;">Critical fields</div>
       {% set critical_fields = preset.fields | selectattr('is_critical') | list %}
       {% if critical_fields %}
         <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;">
           {% for pf in critical_fields %}
-            <div class="panel" style="padding:.75rem;background:#f8fafc;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-              <span class="chip chip--mono" style="font-family:monospace;font-size:.8rem;">{{ pf.field_name.upper() }}</span>
-              <span style="font-weight:500;font-size:.9rem;">{{ pf.label }}</span>
-              <span class="chip {% if pf.severity == 'error' %}chip--error{% elif pf.severity == 'warning' %}chip--warn{% else %}chip--ok{% endif %}" style="font-size:.75rem;">{{ pf.severity }}</span>
+            <div style="padding:.75rem;background:var(--panel-2,rgba(255,255,255,.04));border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+              <span class="chip mono">{{ pf.field_name.upper() }}</span>
+              <span style="font-weight:500;">{{ pf.label }}</span>
+              <span class="badge {% if pf.severity == 'error' %}badge--critical{% elif pf.severity == 'warning' %}badge--warning{% else %}badge--info{% endif %}">{{ pf.severity }}</span>
               <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-left:auto;">
                 {% if pf.allowed_values %}
                   {% for val in pf.allowed_values | from_json %}
-                    <span class="chip" style="font-family:monospace;font-size:.75rem;">{{ val }}</span>
+                    <span class="chip mono">{{ val }}</span>
                   {% endfor %}
                 {% else %}
-                  <span style="font-size:.8rem;color:#94a3b8;">No values set</span>
+                  <span class="text-sm text-muted">No values set</span>
                 {% endif %}
               </div>
               {# Inline values editor #}
@@ -66,10 +65,10 @@
                          @focus="fetchSuggestions('{{ pf.field_name }}')"
                          placeholder="Add value + Enter" class="input input-sm" style="width:100%;">
                   <div x-show="suggestions.length > 0" x-cloak
-                       style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:6px;z-index:50;max-height:160px;overflow-y:auto;">
+                       style="position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;z-index:50;max-height:160px;overflow-y:auto;">
                     <template x-for="s in suggestions" :key="s.value">
                       <div @click="addSuggestion(s.value)"
-                           style="padding:.35rem .6rem;cursor:pointer;font-family:monospace;font-size:.82rem;"
+                           style="padding:.35rem .6rem;cursor:pointer;font-family:var(--mono);font-size:.82rem;"
                            x-text="s.value + ' (' + s.seen_count + ')'"></div>
                     </template>
                   </div>
@@ -78,9 +77,9 @@
                 <button type="button" @click="saveValues()" class="btn btn-primary btn-sm">Save</button>
               </div>
               <template x-for="(v, i) in editVals" :key="v">
-                <span class="chip" style="font-family:monospace;font-size:.75rem;">
+                <span class="chip mono">
                   <span x-text="v"></span>
-                  <button type="button" @click="removeVal(i)" style="background:none;border:none;cursor:pointer;padding:0;margin-left:4px;color:#94a3b8;">{{ icon('x', 10) }}</button>
+                  <button type="button" @click="removeVal(i)" style="background:none;border:none;cursor:pointer;padding:0;margin-left:4px;color:var(--muted);">{{ icon('x', 10) }}</button>
                 </span>
               </template>
               <form method="post" action="/presets/{{ preset.preset_code }}/fields/{{ pf.id }}/delete" style="margin-left:auto;">
@@ -93,22 +92,22 @@
         <p class="text-muted text-sm">No critical fields yet.</p>
       {% endif %}
 
-      <h2 style="margin:1.5rem 0 1rem;">Guidance fields</h2>
+      <div class="panel__title" style="margin:1.5rem 0 1rem;">Guidance fields</div>
       {% set guidance_fields = preset.fields | rejectattr('is_critical') | list %}
       {% if guidance_fields %}
         <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;">
           {% for pf in guidance_fields %}
-            <div class="panel" style="padding:.75rem;background:#f8fafc;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-              <span class="chip chip--mono" style="font-family:monospace;font-size:.8rem;">{{ pf.field_name.upper() }}</span>
-              <span style="font-weight:500;font-size:.9rem;">{{ pf.label }}</span>
-              <span class="chip {% if pf.severity == 'warning' %}chip--warn{% else %}chip--ok{% endif %}" style="font-size:.75rem;">{{ pf.severity }}</span>
+            <div style="padding:.75rem;background:var(--panel-2,rgba(255,255,255,.04));border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+              <span class="chip mono">{{ pf.field_name.upper() }}</span>
+              <span style="font-weight:500;">{{ pf.label }}</span>
+              <span class="badge {% if pf.severity == 'warning' %}badge--warning{% else %}badge--info{% endif %}">{{ pf.severity }}</span>
               <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-left:auto;">
                 {% if pf.allowed_values %}
                   {% for val in pf.allowed_values | from_json %}
-                    <span class="chip" style="font-family:monospace;font-size:.75rem;">{{ val }}</span>
+                    <span class="chip mono">{{ val }}</span>
                   {% endfor %}
                 {% else %}
-                  <span style="font-size:.8rem;color:#94a3b8;">No values set</span>
+                  <span class="text-sm text-muted">No values set</span>
                 {% endif %}
               </div>
               <div x-data="presetFieldEditor('{{ pf.id }}', '{{ preset.preset_code }}', {{ pf.allowed_values | default('[]') | tojson }})" style="display:flex;gap:.5rem;align-items:center;width:100%;">
@@ -118,10 +117,10 @@
                          @focus="fetchSuggestions('{{ pf.field_name }}')"
                          placeholder="Add value + Enter" class="input input-sm" style="width:100%;">
                   <div x-show="suggestions.length > 0" x-cloak
-                       style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:6px;z-index:50;max-height:160px;overflow-y:auto;">
+                       style="position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;z-index:50;max-height:160px;overflow-y:auto;">
                     <template x-for="s in suggestions" :key="s.value">
                       <div @click="addSuggestion(s.value)"
-                           style="padding:.35rem .6rem;cursor:pointer;font-family:monospace;font-size:.82rem;"
+                           style="padding:.35rem .6rem;cursor:pointer;font-family:var(--mono);font-size:.82rem;"
                            x-text="s.value + ' (' + s.seen_count + ')'"></div>
                     </template>
                   </div>
@@ -130,9 +129,9 @@
                 <button type="button" @click="saveValues()" class="btn btn-primary btn-sm">Save</button>
               </div>
               <template x-for="(v, i) in editVals" :key="v">
-                <span class="chip" style="font-family:monospace;font-size:.75rem;">
+                <span class="chip mono">
                   <span x-text="v"></span>
-                  <button type="button" @click="removeVal(i)" style="background:none;border:none;cursor:pointer;padding:0;margin-left:4px;color:#94a3b8;">{{ icon('x', 10) }}</button>
+                  <button type="button" @click="removeVal(i)" style="background:none;border:none;cursor:pointer;padding:0;margin-left:4px;color:var(--muted);">{{ icon('x', 10) }}</button>
                 </span>
               </template>
               <form method="post" action="/presets/{{ preset.preset_code }}/fields/{{ pf.id }}/delete" style="margin-left:auto;">
@@ -147,7 +146,7 @@
 
       {# Add field form #}
       <div class="divider" style="margin:1.25rem 0;"></div>
-      <h3 style="margin-bottom:.75rem;">Add field</h3>
+      <div class="panel__title" style="margin-bottom:.75rem;">Add field</div>
       <form method="post" action="/presets/{{ preset.preset_code }}/fields" class="stack">
         <div class="row">
           <label class="field" style="flex:1;">
@@ -191,19 +190,19 @@
   {% if preset %}
   <div>
     <div class="panel">
-      <h2 style="margin-bottom:1rem;">Plant assignment</h2>
+      <div class="panel__title" style="margin-bottom:1rem;">Plant assignment</div>
       <p class="text-sm text-muted">Select which plants this preset applies to. A plant can only belong to one preset.</p>
       <form method="post" action="/presets/{{ preset.preset_code }}/plants" class="stack" style="margin-top:1rem;">
         {% set assigned_codes = preset.plants | map(attribute='plant_code') | list %}
         <div style="display:flex;flex-direction:column;gap:.4rem;max-height:400px;overflow-y:auto;">
           {% for plant in all_plants %}
-            <label style="display:flex;align-items:center;gap:.6rem;padding:.35rem .5rem;border-radius:6px;cursor:pointer;"
-                   x-data="{}" @mouseenter="$el.style.background='#f1f5f9'" @mouseleave="$el.style.background=''">
+            <label style="display:flex;align-items:center;gap:.6rem;padding:.35rem .5rem;border-radius:6px;cursor:pointer;transition:background .1s;"
+                   x-data="{}" @mouseenter="$el.style.background='rgba(255,255,255,.05)'" @mouseleave="$el.style.background=''">
               <input type="checkbox" name="plant_codes" value="{{ plant.plant_code }}"
                      {% if plant.plant_code in assigned_codes %}checked{% endif %}>
-              <span class="mono" style="font-size:.85rem;">{{ plant.plant_code }}</span>
+              <span class="mono text-sm">{{ plant.plant_code }}</span>
               <span class="text-muted text-sm">{{ plant.description or plant.plant_type }}</span>
-              <span class="chip" style="font-size:.7rem;margin-left:auto;">{{ plant.plant_type }}</span>
+              <span class="chip text-sm" style="margin-left:auto;">{{ plant.plant_type }}</span>
             </label>
           {% else %}
             <p class="text-muted text-sm">No plants configured.</p>

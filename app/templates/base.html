@@ -1,13 +1,13 @@
 {% from "_icons.html" import icon %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-accent="amber" data-density="compact">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}PLCtracker{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.8/dist/cdn.min.js"></script>
@@ -18,20 +18,22 @@
     <div class="app">
       {% include "_sidebar.html" %}
       <div class="main">
-        <header class="main__header">
-          <div class="breadcrumb">
-            <button type="button" class="sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 18) }}</button>
-            {% block breadcrumb %}<span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <span>{{ self.title() }}</span>{% endblock %}
+        <div class="topbar">
+          <button type="button" class="btn-subtle btn-icon sidebar-toggle" onclick="togglePlctSidebar()" aria-label="Open menu">{{ icon('menu', 16) }}</button>
+          <div class="topbar__crumbs">
+            {% block breadcrumb %}<span>Workspace</span> <span class="sep">{{ icon('chevron-right', 12) }}</span> <strong>{{ self.title() }}</strong>{% endblock %}
           </div>
-          <div class="main__title-row">
+          <div class="topbar__right">
+            {% block header_actions %}{% endblock %}
+          </div>
+        </div>
+        <div class="page">
+          <div class="page__head">
             <div>
-              {% block header_title %}<h1>{{ self.title() }}</h1>{% endblock %}
+              {% block header_title %}<div class="page__title">{{ self.title() }}</div>{% endblock %}
               {% block header_subtitle %}{% endblock %}
             </div>
-            <div class="main__actions">{% block header_actions %}{% endblock %}</div>
           </div>
-        </header>
-        <div class="main__body">
           {% block content %}{% endblock %}
         </div>
       </div>

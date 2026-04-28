@@ -10,40 +10,40 @@
 
   <div class="sidebar__label">Workspace</div>
   <div class="sidebar__section">
-    <a href="/board"     class="nav-item {% if request.url.path == '/board'     %}active{% endif %}">{{ icon('kanban',  18) }} Board</a>
-    <a href="/products"  class="nav-item {% if request.url.path.startswith('/products') %}active{% endif %}">{{ icon('table',   18) }} Table</a>
-    <a href="/dashboard" class="nav-item {% if request.url.path == '/dashboard' %}active{% endif %}">{{ icon('chart',   18) }} Dashboard</a>
-    <a href="/review"    class="nav-item {% if request.url.path.startswith('/review') %}active{% endif %}">{{ icon('list-checks', 18) }} Obs review</a>
-    <a href="/upload"    class="nav-item {% if request.url.path == '/upload'    %}active{% endif %}">{{ icon('upload',  18) }} Upload</a>
-    <a href="/npd"      class="nav-item {% if request.url.path.startswith('/npd') %}active{% endif %}">{{ icon('plus-circle', 18) }} NPD Pipeline</a>
+    <a href="/board"     class="nav-item {% if request.url.path == '/board'     %}active{% endif %}"><span class="icon">{{ icon('kanban',  16) }}</span> Board</a>
+    <a href="/products"  class="nav-item {% if request.url.path.startswith('/products') %}active{% endif %}"><span class="icon">{{ icon('table',   16) }}</span> Table</a>
+    <a href="/dashboard" class="nav-item {% if request.url.path == '/dashboard' %}active{% endif %}"><span class="icon">{{ icon('chart',   16) }}</span> Dashboard</a>
+    <a href="/review"    class="nav-item {% if request.url.path.startswith('/review') %}active{% endif %}"><span class="icon">{{ icon('list-checks', 16) }}</span> Obs Review</a>
+    <a href="/upload"    class="nav-item {% if request.url.path == '/upload'    %}active{% endif %}"><span class="icon">{{ icon('upload',  16) }}</span> Upload</a>
+    <a href="/npd"       class="nav-item {% if request.url.path.startswith('/npd') %}active{% endif %}"><span class="icon">{{ icon('plus-circle', 16) }}</span> NPD Pipeline</a>
   </div>
 
   {% if user.role == 'admin' %}
-    <div class="sidebar__label">Governance</div>
-    <div class="sidebar__section">
-      <a href="/governance/violations" class="nav-item {% if request.url.path.startswith('/governance/violations') %}active{% endif %}">{{ icon('list-checks', 18) }} Violations</a>
-      <a href="/governance/rules"      class="nav-item {% if request.url.path.startswith('/governance/rules') %}active{% endif %}">{{ icon('settings', 18) }} Rules</a>
-      <a href="/governance/runs"       class="nav-item {% if request.url.path.startswith('/governance/runs') %}active{% endif %}">{{ icon('chart', 18) }} Runs</a>
-      <a href="/presets"               class="nav-item {% if request.url.path.startswith('/presets') %}active{% endif %}">{{ icon('settings', 18) }} Presets</a>
-    </div>
-    <div class="sidebar__label">Admin</div>
-    <div class="sidebar__section">
-      <a href="/admin" class="nav-item {% if request.url.path.startswith('/admin') %}active{% endif %}">{{ icon('settings', 18) }} Settings</a>
-    </div>
+  <div class="sidebar__sep-label">Governance</div>
+  <div class="sidebar__section">
+    <a href="/governance/violations" class="nav-item {% if request.url.path.startswith('/governance/violations') %}active{% endif %}"><span class="icon">{{ icon('alert-triangle', 16) }}</span> Violations</a>
+    <a href="/governance/rules"      class="nav-item {% if request.url.path.startswith('/governance/rules') %}active{% endif %}"><span class="icon">{{ icon('settings', 16) }}</span> Rules</a>
+    <a href="/governance/runs"       class="nav-item {% if request.url.path.startswith('/governance/runs') %}active{% endif %}"><span class="icon">{{ icon('chart', 16) }}</span> Runs</a>
+    <a href="/presets"               class="nav-item {% if request.url.path.startswith('/presets') %}active{% endif %}"><span class="icon">{{ icon('list-checks', 16) }}</span> Presets</a>
+  </div>
+  <div class="sidebar__sep-label">Admin</div>
+  <div class="sidebar__section">
+    <a href="/admin" class="nav-item {% if request.url.path.startswith('/admin') %}active{% endif %}"><span class="icon">{{ icon('settings', 16) }}</span> Settings</a>
+  </div>
   {% endif %}
 
   <div class="sidebar__user">
     <div class="user-card">
       {% set initials = (user.name or user.email)[:2]|upper %}
-      <span class="avatar avatar--lg">{{ initials }}</span>
+      <span class="avatar">{{ initials }}</span>
       <div>
         <div class="name">{{ user.name or user.email.split('@')[0] }}</div>
         <div class="role">{{ user.role }}</div>
       </div>
     </div>
     <form method="post" action="/logout">
-      <button type="submit" class="sidebar__signout">{{ icon('logout', 18) }} Sign out</button>
+      <button type="submit" class="btn-subtle" style="width:100%;justify-content:flex-start;gap:8px;padding:7px 10px;color:var(--muted)">{{ icon('logout', 15) }} Sign out</button>
     </form>
   </div>
 </aside>
-<div class="sidebar-backdrop"></div>
+<div class="sidebar-backdrop" onclick="togglePlctSidebar()"></div>

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile, status
-from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..auth import require_user

@@ -11,8 +11,8 @@ from .auth import hash_password
 from .config import settings
 from .db import Base, engine, db_session
 from .models import (
-    ExtractionRun, GovernanceRule, GovernanceViolation,
-    LifecycleStage, Marc, MarcChange, Material,
+    ExtractionRun, GovernanceRule, GovernanceViolation,  # noqa: F401 — needed for SQLAlchemy metadata
+    LifecycleStage, Marc, MarcChange, Material,  # noqa: F401
     MrpRule, Plant, Product, SchemaMeta, Tag, User,
 )
 

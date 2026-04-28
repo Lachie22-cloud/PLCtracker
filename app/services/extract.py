@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -16,11 +16,10 @@ from ..models import (
     Marc,
     MarcChange,
     Material,
-    Plant,
     Product,
     StageTransition,
 )
-from .governance import MARC_FIELDS, load_rules, rebuild_violations
+from .governance import load_rules, rebuild_violations
 from .sap_odata import MARC_FIELD_MAP, SapODataClient
 from .snapshot import _ensure_plants, _ensure_stages, _recompute_family_mismatches
 
@@ -127,9 +126,6 @@ def _upsert_marc(
 def _sync_products_from_marc(db: Session, now: datetime) -> None:
     """Project MARC state into the product + stage_transition tables."""
     marc_rows: List[Marc] = list(db.scalars(select(Marc)).all())
-    mtart_by_matnr: Dict[str, str] = {
-        m.matnr: m.mtart for m in db.scalars(select(Material)).all()
-    }
 
     # Gather all plant codes and stage codes from MARC
     plant_codes = list({m.werks for m in marc_rows})

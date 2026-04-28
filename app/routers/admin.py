@@ -6,8 +6,6 @@ import traceback
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-
-logger = logging.getLogger(__name__)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +15,8 @@ from ..models import LifecycleStage, MrpRule, Plant, Snapshot, Tag, User
 from ..services.demo_seed import reset_demo_data, seed_demo_data
 from ..services.snapshot import _recompute_family_mismatches
 from ..templating import templates
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

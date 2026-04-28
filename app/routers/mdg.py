@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fastapi import APIRouter
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 INDEX = DIST / "index.html"
